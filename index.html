@@ -6,6 +6,9 @@
 <title>Bolão Copa 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Metal+Mania&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -72,6 +75,15 @@
     border-radius:14px;
     padding:18px;
   }
+  .titulo-hardcore {
+  font-family: 'Metal Mania', cursive;
+  letter-spacing: 0.08em;
+  font-size: 1.2em;
+  text-shadow:
+    1px 1px 0 #000,
+    2px 2px 0 #7f1d1d,
+    0 0 8px rgba(255, 0, 0, 0.35);
+}
   .btn{
     display:inline-flex;
     align-items:center;
@@ -338,8 +350,9 @@
   <!-- ============ MAIN APP ============ -->
   <div id="app" class="hidden">
     <header class="topbar">
-      <h1>Bolão <span style="color:var(--amber);">Copa 2026</span></h1>
-      <div class="sub" id="topbar-sub">Fase de grupos · Acertos valem pontos</div>
+      <h1>Bolão <span class="titulo-hardcore text-red-500">HARDCORE -</span> <span style="color:var(--amber);">Copa 2026</span></h1>
+      <div class="sub" id="topbar-sub">Fase de grupos</div>
+      <div class="sub">Valendo o que? Não sei ainda...</div>
     </header>
 
     <main>
@@ -370,7 +383,9 @@
       <!-- RANKING -->
       <section id="tab-ranking" class="tab hidden">
         <div class="section-title">Ranking geral</div>
-        <div class="section-sub">3 pontos no placar exato · 1 ponto no vencedor (ou empate) certo.</div>
+        <div class="section-sub">Placar exato (conta empate) = 3 pts<br>
+                                Placar errado, acertar vencedor = 1 pt<br>
+                                Empate com placar errado = 1 pt</div>
         <div id="ranking-list"></div>
       </section>
 
