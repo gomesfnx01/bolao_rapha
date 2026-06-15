@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Bolão Copa 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pitch:#0E3B2E;
+    --pitch-deep:#082922;
+    --chalk:#F6F4EC;
+    --paper:#FFFFFF;
+    --amber:#FFC53D;
+    --ink:#16231D;
+    --muted:#7C8A82;
+    --line:#E5E1D3;
+    --red:#D9534F;
+    --green-ok:#3E8E5A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:'Inter',sans-serif;
+    background:var(--pitch-deep);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  #shell{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    background:var(--chalk);
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    box-shadow:0 0 40px rgba(0,0,0,.35);
+  }
+  .hidden{display:none !important;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    background:var(--pitch);
+    color:#fff;
+    padding:18px 18px 16px;
+    position:sticky;
+    top:0;
+    z-index:20;
+    border-bottom:3px solid var(--amber);
+  }
+  .topbar h1{
+    font-family:'Anton',sans-serif;
+    font-size:22px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    line-height:1.1;
+  }
+  .topbar .sub{
+    font-size:12px;
+    color:#9FCBB4;
+    margin-top:3px;
+    font-weight:500;
+  }
+
+  /* ---------- Generic ---------- */
+  main{flex:1;padding:14px;padding-bottom:96px;}
+  .card{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px;
+  }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    border:none;
+    border-radius:10px;
+    padding:13px 16px;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    transition:transform .05s ease;
+  }
+  .btn:active{transform:scale(0.98);}
+  .btn-primary{background:var(--amber);color:var(--pitch-deep);}
+  .btn-primary:disabled{background:#E8DDBE;color:#A99F86;cursor:not-allowed;}
+  .btn-ghost{background:transparent;color:var(--pitch);border:1.5px solid var(--pitch);}
+  .btn-danger{background:transparent;color:var(--red);border:1.5px solid var(--red);}
+  .btn-sm{padding:9px 12px;font-size:12px;width:auto;}
+  label{
+    display:block;
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:var(--muted);
+    margin-bottom:6px;
+    margin-top:14px;
+  }
+  input[type=text],input[type=email],input[type=password],input[type=datetime-local],select{
+    width:100%;
+    padding:12px 14px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    font-size:15px;
+    font-family:'Inter',sans-serif;
+    background:#fff;
+    color:var(--ink);
+  }
+  input:focus,select:focus{outline:2px solid var(--amber);border-color:var(--amber);}
+  .error-msg{
+    background:#FBEAEA;color:var(--red);font-size:13px;font-weight:600;
+    padding:10px 12px;border-radius:8px;margin-top:12px;
+  }
+  .info-msg{
+    background:#EAF3EE;color:var(--green-ok);font-size:13px;font-weight:600;
+    padding:10px 12px;border-radius:8px;margin-top:12px;
+  }
+  .empty-state{
+    text-align:center;padding:50px 20px;color:var(--muted);
+  }
+  .empty-state .big{font-size:40px;display:block;margin-bottom:10px;}
+
+  /* ---------- Auth / Onboarding screens ---------- */
+  .screen{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:28px;
+    background:linear-gradient(160deg,var(--pitch) 0%, var(--pitch-deep) 100%);
+    color:#fff;
+  }
+  .screen .logo{
+    font-family:'Anton',sans-serif;
+    font-size:34px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    text-align:center;
+    margin-bottom:4px;
+  }
+  .screen .logo span{color:var(--amber);}
+  .screen .tagline{
+    text-align:center;font-size:13px;color:#9FCBB4;margin-bottom:28px;font-weight:500;
+  }
+  .auth-card{
+    background:#fff;color:var(--ink);border-radius:16px;padding:22px;
+  }
+  .auth-toggle{
+    display:flex;background:var(--line);border-radius:10px;padding:4px;margin-bottom:6px;
+  }
+  .auth-toggle button{
+    flex:1;border:none;background:transparent;padding:10px;border-radius:8px;
+    font-weight:700;font-size:13px;color:var(--muted);cursor:pointer;
+  }
+  .auth-toggle button.active{background:var(--pitch);color:#fff;}
+
+  /* avatar */
+  .avatar{
+    width:64px;height:64px;border-radius:50%;object-fit:cover;
+    background:var(--pitch);display:flex;align-items:center;justify-content:center;
+    font-size:26px;color:#fff;flex-shrink:0;border:2px solid var(--amber);
+  }
+  .avatar-lg{width:88px;height:88px;font-size:36px;}
+  .avatar-upload{display:flex;align-items:center;gap:14px;margin-top:8px;}
+
+  /* ---------- Bottom nav ---------- */
+  .bottom-nav{
+    position:fixed;bottom:0;left:0;right:0;
+    max-width:480px;margin:0 auto;
+    background:var(--pitch);
+    display:flex;justify-content:space-around;
+    padding:8px 0 calc(8px + env(safe-area-inset-bottom));
+    box-shadow:0 -4px 16px rgba(0,0,0,.2);
+    border-top:3px solid var(--amber);
+    z-index:30;
+  }
+  .bottom-nav button{
+    background:none;border:none;color:#9FCBB4;
+    font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    cursor:pointer;padding:6px 14px;border-radius:10px;
+    text-transform:uppercase;letter-spacing:.3px;
+  }
+  .bottom-nav button .ico{font-size:20px;line-height:1;}
+  .bottom-nav button.active{color:var(--amber);}
+
+  /* ---------- Section headers ---------- */
+  .section-title{
+    font-family:'Anton',sans-serif;
+    font-size:20px;letter-spacing:.5px;text-transform:uppercase;
+    color:var(--pitch);margin-bottom:4px;
+  }
+  .section-sub{font-size:12px;color:var(--muted);margin-bottom:14px;}
+
+  /* ---------- Match cards (Palpites) ---------- */
+  .filter-row{display:flex;gap:8px;margin-bottom:14px;}
+  .filter-row select{flex:1;}
+
+  .match-card{
+    background:var(--paper);border:1px solid var(--line);border-radius:14px;
+    padding:14px;margin-bottom:12px;
+  }
+  .match-meta{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:11px;color:var(--muted);margin-bottom:12px;
+    text-transform:uppercase;letter-spacing:.4px;font-weight:700;
+  }
+  .badge{
+    display:inline-block;padding:3px 8px;border-radius:6px;font-size:10px;
+    font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+  }
+  .badge-group{background:var(--pitch);color:#fff;}
+  .badge-pending{background:#FFF3D6;color:#A6791E;}
+  .badge-done{background:#E6F2EB;color:var(--green-ok);}
+  .badge-points-3{background:var(--amber);color:var(--pitch-deep);}
+  .badge-points-1{background:#DDEAE1;color:var(--green-ok);}
+  .badge-points-0{background:#F1ECE0;color:var(--muted);}
+
+  .teams-row{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;}
+  .team-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;min-width:0;}
+  .team-col .flag{font-size:34px;line-height:1;}
+  .team-col .name{font-size:12.5px;font-weight:700;line-height:1.2;}
+  .score-box{
+    width:56px;height:56px;background:var(--pitch);color:var(--amber);
+    font-family:'Anton',sans-serif;font-size:26px;text-align:center;
+    border:none;border-radius:10px;-moz-appearance:textfield;
+  }
+  .score-box::-webkit-outer-spin-button,.score-box::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .score-box:disabled{background:#EDE9DB;color:var(--muted);}
+  .versus{
+    font-family:'Anton',sans-serif;font-size:18px;color:var(--muted);
+    align-self:center;margin-top:34px;padding:0 2px;
+  }
+  .match-footer{margin-top:12px;}
+  .saved-note{
+    font-size:12px;color:var(--muted);text-align:center;font-weight:600;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .result-note{
+    font-size:12px;text-align:center;font-weight:700;margin-top:10px;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+
+  /* ---------- Ranking ---------- */
+  .ranking-row{
+    display:flex;align-items:center;gap:12px;background:var(--paper);
+    border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:8px;
+  }
+  .ranking-row.me{border-color:var(--amber);background:#FFFBF0;}
+  .ranking-pos{
+    font-family:'Anton',sans-serif;font-size:18px;color:var(--pitch);width:28px;text-align:center;
+  }
+  .ranking-row.pos-1 .ranking-pos{color:#D4A017;}
+  .ranking-row.pos-2 .ranking-pos{color:#9AA0A6;}
+  .ranking-row.pos-3 .ranking-pos{color:#B5651D;}
+  .ranking-name{flex:1;font-weight:700;font-size:14px;}
+  .ranking-name .you-tag{font-size:10px;color:var(--amber);background:var(--pitch);padding:2px 6px;border-radius:5px;margin-left:6px;text-transform:uppercase;}
+  .ranking-pts{font-family:'Anton',sans-serif;font-size:20px;color:var(--pitch);}
+  .ranking-pts span{font-size:10px;color:var(--muted);font-family:'Inter',sans-serif;font-weight:700;margin-left:2px;}
+
+  /* ---------- Profile ---------- */
+  .profile-head{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
+  .profile-head .name{font-family:'Anton',sans-serif;font-size:20px;color:var(--pitch);}
+  .profile-head .email{font-size:12px;color:var(--muted);}
+
+  /* ---------- Admin ---------- */
+  .admin-match-row{
+    border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:#fff;
+  }
+  .admin-match-top{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;}
+  .admin-match-teams{display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;font-weight:700;margin-bottom:10px;}
+  .admin-score-row{display:flex;align-items:center;justify-content:center;gap:10px;}
+  .admin-score-row input{width:60px;text-align:center;font-family:'Anton',sans-serif;font-size:18px;padding:8px;}
+  .admin-actions{display:flex;gap:8px;margin-top:10px;}
+  .admin-actions .btn{flex:1;}
+
+  /* loading */
+  #loading{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:var(--pitch-deep);color:var(--amber);font-family:'Anton',sans-serif;font-size:18px;letter-spacing:1px;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">CARREGANDO O BOLÃO...</div>
+
+<div id="shell" class="hidden">
+
+  <!-- ============ AUTH SCREEN ============ -->
+  <div id="auth-screen" class="screen hidden">
+    <div class="logo">BOLÃO <span>2026</span></div>
+    <div class="tagline">Palpites da fase de grupos da Copa do Mundo</div>
+    <div class="auth-card">
+      <div class="auth-toggle">
+        <button id="tab-login-btn" class="active" onclick="setAuthMode('login')">Entrar</button>
+        <button id="tab-signup-btn" onclick="setAuthMode('signup')">Criar conta</button>
+      </div>
+      <label>E-mail</label>
+      <input type="email" id="auth-email" placeholder="seu@email.com" autocomplete="email">
+      <label>Senha</label>
+      <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password">
+      <div style="margin-top:18px;">
+        <button class="btn btn-primary" id="auth-submit-btn" onclick="submitAuth()">Entrar</button>
+      </div>
+      <div id="auth-error" class="error-msg hidden"></div>
+    </div>
+  </div>
+
+  <!-- ============ ONBOARDING (set nickname/photo) ============ -->
+  <div id="onboarding-screen" class="screen hidden">
+    <div class="logo">QUASE LÁ!</div>
+    <div class="tagline">Escolha um nome de exibição para o bolão</div>
+    <div class="auth-card">
+      <div class="avatar-upload">
+        <img id="onboard-avatar-preview" class="avatar avatar-lg" />
+        <div style="flex:1;">
+          <label style="margin-top:0;">Foto de perfil (opcional)</label>
+          <input type="file" accept="image/*" id="onboard-photo-input" onchange="handlePhotoSelect(event,'onboard')">
+        </div>
+      </div>
+      <label>Nickname</label>
+      <input type="text" id="onboard-nickname" placeholder="Ex: Craque do Sofá" maxlength="24">
+      <div style="margin-top:18px;">
+        <button class="btn btn-primary" onclick="completeOnboarding()">Começar a palpitar</button>
+      </div>
+      <div id="onboard-error" class="error-msg hidden"></div>
+    </div>
+  </div>
+
+  <!-- ============ MAIN APP ============ -->
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <h1>Bolão <span style="color:var(--amber);">Copa 2026</span></h1>
+      <div class="sub" id="topbar-sub">Fase de grupos · Acertos valem pontos</div>
+    </header>
+
+    <main>
+      <!-- PALPITES -->
+      <section id="tab-palpites" class="tab">
+        <div class="section-title">Seus palpites</div>
+        <div class="section-sub">Escolha o placar de cada jogo. Depois de salvar, não é possível alterar.</div>
+        <div class="filter-row">
+          <select id="group-filter" onchange="renderPalpites()">
+            <option value="all">Todos os grupos</option>
+            <option value="A">Grupo A</option>
+            <option value="B">Grupo B</option>
+            <option value="C">Grupo C</option>
+            <option value="D">Grupo D</option>
+            <option value="E">Grupo E</option>
+            <option value="F">Grupo F</option>
+            <option value="G">Grupo G</option>
+            <option value="H">Grupo H</option>
+            <option value="I">Grupo I</option>
+            <option value="J">Grupo J</option>
+            <option value="K">Grupo K</option>
+            <option value="L">Grupo L</option>
+          </select>
+        </div>
+        <div id="palpites-list"></div>
+      </section>
+
+      <!-- RANKING -->
+      <section id="tab-ranking" class="tab hidden">
+        <div class="section-title">Ranking geral</div>
+        <div class="section-sub">3 pontos no placar exato · 1 ponto no vencedor (ou empate) certo.</div>
+        <div id="ranking-list"></div>
+      </section>
+
+      <!-- PERFIL -->
+      <section id="tab-perfil" class="tab hidden">
+        <div class="section-title">Seu perfil</div>
+        <div class="section-sub">Atualize sua foto e nickname.</div>
+        <div class="card">
+          <div class="avatar-upload">
+            <img id="profile-avatar-preview" class="avatar avatar-lg" />
+            <div style="flex:1;">
+              <label style="margin-top:0;">Foto de perfil</label>
+              <input type="file" accept="image/*" id="profile-photo-input" onchange="handlePhotoSelect(event,'profile')">
+            </div>
+          </div>
+          <label>Nickname</label>
+          <input type="text" id="profile-nickname" maxlength="24">
+          <label>E-mail</label>
+          <input type="text" id="profile-email" disabled style="background:#F1ECE0;color:var(--muted);">
+          <div style="margin-top:18px;">
+            <button class="btn btn-primary" onclick="saveProfile()">Salvar alterações</button>
+          </div>
+          <div id="profile-msg"></div>
+        </div>
+        <div style="margin-top:14px;">
+          <button class="btn btn-danger" onclick="doLogout()">Sair da conta</button>
+        </div>
+      </section>
+
+      <!-- ADMIN -->
+      <section id="tab-admin" class="tab hidden">
+        <div class="section-title">Painel do administrador</div>
+        <div class="section-sub">Cadastre os jogos e lance os resultados oficiais.</div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-weight:800;font-size:14px;color:var(--pitch);margin-bottom:4px;">Novo jogo</div>
+          <label style="margin-top:8px;">Grupo</label>
+          <select id="admin-group" onchange="populateAdminTeams()">
+            <option value="">Selecione...</option>
+            <option value="A">Grupo A</option><option value="B">Grupo B</option>
+            <option value="C">Grupo C</option><option value="D">Grupo D</option>
+            <option value="E">Grupo E</option><option value="F">Grupo F</option>
+            <option value="G">Grupo G</option><option value="H">Grupo H</option>
+            <option value="I">Grupo I</option><option value="J">Grupo J</option>
+            <option value="K">Grupo K</option><option value="L">Grupo L</option>
+          </select>
+          <label>Time A</label>
+          <select id="admin-team-a"><option value="">Selecione o grupo primeiro</option></select>
+          <label>Time B</label>
+          <select id="admin-team-b"><option value="">Selecione o grupo primeiro</option></select>
+          <label>Data e horário (Brasília)</label>
+          <input type="datetime-local" id="admin-datetime">
+          <div style="margin-top:18px;">
+            <button class="btn btn-primary" onclick="createMatch()">Criar jogo</button>
+          </div>
+          <div id="admin-create-msg"></div>
+        </div>
+
+        <div style="font-weight:800;font-size:14px;color:var(--pitch);margin-bottom:8px;">Jogos cadastrados</div>
+        <div id="admin-matches-list"></div>
+      </section>
+    </main>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav">
+      <button data-tab="palpites" class="active" onclick="switchTab('palpites')">
+        <span class="ico">⚽</span>Palpites
+      </button>
+      <button data-tab="ranking" onclick="switchTab('ranking')">
+        <span class="ico">🏆</span>Ranking
+      </button>
+      <button data-tab="perfil" onclick="switchTab('perfil')">
+        <span class="ico">👤</span>Perfil
+      </button>
+      <button data-tab="admin" id="nav-admin" class="hidden" onclick="switchTab('admin')">
+        <span class="ico">🛠️</span>Admin
+      </button>
+    </nav>
+  </div>
+</div>
+
+<script type="module">
+/* =========================================================================
+   BOLÃO COPA 2026 — app.js (inline)
+   Antes de usar, preencha FIREBASE_CONFIG abaixo com as credenciais do
+   seu projeto Firebase (veja o README.md para o passo a passo).
+   ========================================================================= */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
+  signInWithEmailAndPassword, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs,
+  query, orderBy, onSnapshot, serverTimestamp, deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// >>>>>>>>>>>>>>>>>>>> PREENCHA COM A CONFIG DO SEU FIREBASE <<<<<<<<<<<<<<<<<<<<
+const firebaseConfig = {
+  apiKey: "AIzaSyAYUsGtOtXwDEnsTeE5PTZyxUn6-P1eCX8",
+  authDomain: "claudebolao.firebaseapp.com",
+  projectId: "claudebolao",
+  storageBucket: "claudebolao.firebasestorage.app",
+  messagingSenderId: "420373581603",
+  appId: "1:420373581603:web:42f3108083c1c0d63a0696"
+};
+// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+const fbApp = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+/* ---------------- Times por grupo (Copa 2026) ---------------- */
+const TEAMS_BY_GROUP = {
+  A: [["México","🇲🇽"],["África do Sul","🇿🇦"],["Coreia do Sul","🇰🇷"],["Rep. Tcheca","🇨🇿"]],
+  B: [["Canadá","🇨🇦"],["Bósnia","🇧🇦"],["Catar","🇶🇦"],["Suíça","🇨🇭"]],
+  C: [["Brasil","🇧🇷"],["Marrocos","🇲🇦"],["Haiti","🇭🇹"],["Escócia","🏴"]],
+  D: [["EUA","🇺🇸"],["Paraguai","🇵🇾"],["Austrália","🇦🇺"],["Turquia","🇹🇷"]],
+  E: [["Alemanha","🇩🇪"],["Curaçao","🇨🇼"],["Costa do Marfim","🇨🇮"],["Equador","🇪🇨"]],
+  F: [["Holanda","🇳🇱"],["Japão","🇯🇵"],["Suécia","🇸🇪"],["Tunísia","🇹🇳"]],
+  G: [["Bélgica","🇧🇪"],["Egito","🇪🇬"],["Irã","🇮🇷"],["Nova Zelândia","🇳🇿"]],
+  H: [["Espanha","🇪🇸"],["Cabo Verde","🇨🇻"],["Arábia Saudita","🇸🇦"],["Uruguai","🇺🇾"]],
+  I: [["França","🇫🇷"],["Senegal","🇸🇳"],["Iraque","🇮🇶"],["Noruega","🇳🇴"]],
+  J: [["Argentina","🇦🇷"],["Argélia","🇩🇿"],["Áustria","🇦🇹"],["Jordânia","🇯🇴"]],
+  K: [["Portugal","🇵🇹"],["RD Congo","🇨🇩"],["Uzbequistão","🇺🇿"],["Colômbia","🇨🇴"]],
+  L: [["Inglaterra","🏴"],["Croácia","🇭🇷"],["Gana","🇬🇭"],["Panamá","🇵🇦"]]
+};
+const FLAG_BY_NAME = {};
+Object.values(TEAMS_BY_GROUP).flat().forEach(([name,flag]) => FLAG_BY_NAME[name] = flag);
+
+/* ---------------- Estado global ---------------- */
+let currentUser = null;
+let userProfile = null;
+let allMatches = [];           // [{id, group, teamA, teamB, datetime, scoreA, scoreB, status}]
+let myPredictions = {};        // matchId -> {predA, predB}
+let unsubMatches = null;
+let unsubMyPreds = null;
+let pendingPhotoBase64 = { onboard: null, profile: null };
+
+/* ---------------- Helpers ---------------- */
+function $(id){ return document.getElementById(id); }
+function show(el){ el.classList.remove('hidden'); }
+function hide(el){ el.classList.add('hidden'); }
+
+function resizeImageToBase64(file, maxSize=160){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize; } }
+        else { if (h > maxSize) { w = Math.round(w * maxSize / h); h = maxSize; } }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+window.handlePhotoSelect = async function(event, context){
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const base64 = await resizeImageToBase64(file);
+    pendingPhotoBase64[context] = base64;
+    const previewEl = context === 'onboard' ? $('onboard-avatar-preview') : $('profile-avatar-preview');
+    previewEl.src = base64;
+  } catch(e) {
+    console.error('Erro ao processar imagem', e);
+  }
+};
+
+function avatarHTML(photoBase64, fallbackEmoji='⚽', sizeClass=''){
+  if (photoBase64) {
+    return `<img class="avatar ${sizeClass}" src="${photoBase64}">`;
+  }
+  return `<div class="avatar ${sizeClass}">${fallbackEmoji}</div>`;
+}
+
+function setDefaultAvatarPreview(imgEl){
+  // simple inline svg placeholder shown via background, but <img> needs a src.
+  // use a transparent 1x1 and let CSS background show through container styling
+  imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%230E3B2E'/%3E%3Ctext x='50' y='62' font-size='50' text-anchor='middle' fill='%23FFC53D'%3E⚽%3C/text%3E%3C/svg%3E";
+}
+
+/* ---------------- Auth screens ---------------- */
+let authMode = 'login';
+window.setAuthMode = function(mode){
+  authMode = mode;
+  $('tab-login-btn').classList.toggle('active', mode === 'login');
+  $('tab-signup-btn').classList.toggle('active', mode === 'signup');
+  $('auth-submit-btn').textContent = mode === 'login' ? 'Entrar' : 'Criar conta';
+  hide($('auth-error'));
+};
+
+window.submitAuth = async function(){
+  const email = $('auth-email').value.trim();
+  const password = $('auth-password').value;
+  const errEl = $('auth-error');
+  hide(errEl);
+  if (!email || !password) {
+    errEl.textContent = 'Preencha e-mail e senha.';
+    show(errEl);
+    return;
+  }
+  try {
+    if (authMode === 'login') {
+      await signInWithEmailAndPassword(auth, email, password);
+    } else {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        email, nickname: '', photoBase64: '', isAdmin: false, createdAt: serverTimestamp()
+      });
+    }
+  } catch (e) {
+    errEl.textContent = traduzErroFirebase(e.code);
+    show(errEl);
+  }
+};
+
+function traduzErroFirebase(code){
+  const map = {
+    'auth/invalid-email': 'E-mail inválido.',
+    'auth/user-not-found': 'Usuário não encontrado.',
+    'auth/wrong-password': 'Senha incorreta.',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/email-already-in-use': 'Este e-mail já está cadastrado. Tente entrar.',
+    'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.',
+  };
+  return map[code] || 'Ocorreu um erro. Tente novamente.';
+}
+
+window.doLogout = async function(){
+  if (unsubMatches) unsubMatches();
+  if (unsubMyPreds) unsubMyPreds();
+  await signOut(auth);
+};
+
+/* ---------------- Onboarding ---------------- */
+window.completeOnboarding = async function(){
+  const nickname = $('onboard-nickname').value.trim();
+  const errEl = $('onboard-error');
+  hide(errEl);
+  if (!nickname) {
+    errEl.textContent = 'Escolha um nickname para continuar.';
+    show(errEl);
+    return;
+  }
+  const data = { nickname };
+  if (pendingPhotoBase64.onboard) data.photoBase64 = pendingPhotoBase64.onboard;
+  await updateDoc(doc(db, 'users', currentUser.uid), data);
+  userProfile = { ...userProfile, ...data };
+  enterApp();
+};
+
+/* ---------------- Tabs ---------------- */
+window.switchTab = function(tabName){
+  document.querySelectorAll('.tab').forEach(el => hide(el));
+  document.querySelectorAll('.bottom-nav button').forEach(el => el.classList.remove('active'));
+  show($('tab-' + tabName));
+  document.querySelector(`.bottom-nav button[data-tab="${tabName}"]`).classList.add('active');
+  if (tabName === 'ranking') renderRanking();
+  if (tabName === 'perfil') renderPerfil();
+  if (tabName === 'admin') renderAdmin();
+};
+
+/* ---------------- Entrar no app ---------------- */
+function enterApp(){
+  hide($('auth-screen'));
+  hide($('onboarding-screen'));
+  show($('app'));
+
+  if (userProfile.isAdmin) show($('nav-admin'));
+  else hide($('nav-admin'));
+
+  subscribeMatches();
+  subscribeMyPredictions();
+}
+
+/* ---------------- Firestore: jogos ---------------- */
+function subscribeMatches(){
+  if (unsubMatches) unsubMatches();
+  const q = query(collection(db, 'matches'), orderBy('datetime', 'asc'));
+  unsubMatches = onSnapshot(q, snap => {
+    allMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderPalpites();
+    if (!$('tab-admin').classList.contains('hidden')) renderAdmin();
+  });
+}
+
+function subscribeMyPredictions(){
+  if (unsubMyPreds) unsubMyPreds();
+  const q = collection(db, 'predictions');
+  unsubMyPreds = onSnapshot(q, snap => {
+    myPredictions = {};
+    snap.docs.forEach(d => {
+      const data = d.data();
+      if (data.uid === currentUser.uid) {
+        myPredictions[data.matchId] = { predA: data.predA, predB: data.predB };
+      }
+    });
+    renderPalpites();
+  });
+}
+
+/* ---------------- Render: Palpites ---------------- */
+function fmtDateTime(iso){
+  if (!iso) return '';
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm} · ${hh}:${mi}`;
+}
+
+function calcPoints(pred, match){
+  if (match.status !== 'finalizado' || match.scoreA == null || match.scoreB == null) return null;
+  if (pred.predA === match.scoreA && pred.predB === match.scoreB) return 3;
+  const predDiff = Math.sign(pred.predA - pred.predB);
+  const realDiff = Math.sign(match.scoreA - match.scoreB);
+  return predDiff === realDiff ? 1 : 0;
+}
+
+window.renderPalpites = function(){
+  const list = $('palpites-list');
+  const filter = $('group-filter').value;
+  const matches = allMatches.filter(m => filter === 'all' || m.group === filter);
+
+  if (matches.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="big">📭</span>Nenhum jogo cadastrado ainda.<br>Peça ao administrador para adicionar os jogos.</div>`;
+    return;
+  }
+
+  list.innerHTML = matches.map(m => {
+    const flagA = FLAG_BY_NAME[m.teamA] || '🏳️';
+    const flagB = FLAG_BY_NAME[m.teamB] || '🏳️';
+    const pred = myPredictions[m.id];
+    const isFinal = m.status === 'finalizado';
+    const points = pred ? calcPoints(pred, m) : null;
+
+    let footer = '';
+    if (pred) {
+      footer = `<div class="saved-note">✅ Palpite salvo: ${m.teamA} ${pred.predA} x ${pred.predB} ${m.teamB}</div>`;
+      if (isFinal && points !== null) {
+        const cls = points === 3 ? 'badge-points-3' : (points === 1 ? 'badge-points-1' : 'badge-points-0');
+        footer += `<div class="result-note"><span class="badge ${cls}">+${points} pt${points===1?'':'s'}</span></div>`;
+      }
+    } else if (isFinal) {
+      footer = `<div class="saved-note">— Você não registrou palpite para este jogo —</div>`;
+    } else {
+      footer = `<div class="match-footer"><button class="btn btn-primary" onclick="savePrediction('${m.id}')">Salvar palpite</button></div>`;
+    }
+
+    const valA = pred ? pred.predA : '';
+    const valB = pred ? pred.predB : '';
+    const disabled = pred ? 'disabled' : '';
+
+    const statusBadge = isFinal
+      ? `<span class="badge badge-done">Resultado: ${m.scoreA} x ${m.scoreB}</span>`
+      : `<span class="badge badge-pending">Aguardando jogo</span>`;
+
+    return `
+      <div class="match-card">
+        <div class="match-meta">
+          <span class="badge badge-group">Grupo ${m.group}</span>
+          <span>${fmtDateTime(m.datetime)}</span>
+        </div>
+        <div class="teams-row">
+          <div class="team-col">
+            <div class="flag">${flagA}</div>
+            <div class="name">${m.teamA}</div>
+            <input type="number" min="0" max="20" class="score-box" id="score-a-${m.id}" value="${valA}" ${disabled}>
+          </div>
+          <div class="versus">x</div>
+          <div class="team-col">
+            <div class="flag">${flagB}</div>
+            <div class="name">${m.teamB}</div>
+            <input type="number" min="0" max="20" class="score-box" id="score-b-${m.id}" value="${valB}" ${disabled}>
+          </div>
+        </div>
+        <div class="match-meta" style="margin-top:10px;margin-bottom:0;justify-content:center;">
+          ${statusBadge}
+        </div>
+        ${footer}
+      </div>`;
+  }).join('');
+};
+
+window.savePrediction = async function(matchId){
+  const aEl = $('score-a-' + matchId);
+  const bEl = $('score-b-' + matchId);
+  const a = aEl.value, b = bEl.value;
+  if (a === '' || b === '' || isNaN(a) || isNaN(b) || a < 0 || b < 0) {
+    alert('Preencha os dois placares com números válidos (0 ou mais).');
+    return;
+  }
+  const predId = `${currentUser.uid}_${matchId}`;
+  if (!confirm(`Confirmar palpite ${a} x ${b}? Não será possível alterar depois.`)) return;
+  try {
+    await setDoc(doc(db, 'predictions', predId), {
+      uid: currentUser.uid,
+      matchId,
+      predA: Number(a),
+      predB: Number(b),
+      createdAt: serverTimestamp()
+    });
+  } catch (e) {
+    console.error(e);
+    alert('Não foi possível salvar o palpite. Tente novamente.');
+  }
+};
+
+/* ---------------- Render: Ranking ---------------- */
+async function renderRanking(){
+  const list = $('ranking-list');
+  list.innerHTML = `<div class="empty-state">Calculando ranking...</div>`;
+
+  const [usersSnap, predsSnap] = await Promise.all([
+    getDocs(collection(db, 'users')),
+    getDocs(collection(db, 'predictions'))
+  ]);
+
+  const matchById = {};
+  allMatches.forEach(m => matchById[m.id] = m);
+
+  const predsByUser = {};
+  predsSnap.docs.forEach(d => {
+    const p = d.data();
+    if (!predsByUser[p.uid]) predsByUser[p.uid] = [];
+    predsByUser[p.uid].push(p);
+  });
+
+  const ranking = usersSnap.docs.map(d => {
+    const u = d.data();
+    const preds = predsByUser[d.id] || [];
+    let total = 0;
+    preds.forEach(p => {
+      const m = matchById[p.matchId];
+      if (!m) return;
+      const pts = calcPoints({predA: p.predA, predB: p.predB}, m);
+      if (pts !== null) total += pts;
+    });
+    return { uid: d.id, nickname: u.nickname || '(sem nome)', photoBase64: u.photoBase64 || '', total };
+  });
+
+  ranking.sort((a,b) => b.total - a.total);
+
+  if (ranking.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="big">🏆</span>Ainda não há participantes.</div>`;
+    return;
+  }
+
+  list.innerHTML = ranking.map((r, idx) => {
+    const pos = idx + 1;
+    const isMe = r.uid === currentUser.uid;
+    return `
+      <div class="ranking-row ${isMe ? 'me' : ''} pos-${pos <= 3 ? pos : 0}">
+        <div class="ranking-pos">${pos}º</div>
+        ${avatarHTML(r.photoBase64, '⚽', '')}
+        <div class="ranking-name">${escapeHtml(r.nickname)}${isMe ? '<span class="you-tag">você</span>' : ''}</div>
+        <div class="ranking-pts">${r.total}<span>pts</span></div>
+      </div>`;
+  }).join('');
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+/* ---------------- Render: Perfil ---------------- */
+function renderPerfil(){
+  $('profile-nickname').value = userProfile.nickname || '';
+  $('profile-email').value = userProfile.email || currentUser.email || '';
+  const img = $('profile-avatar-preview');
+  if (userProfile.photoBase64) img.src = userProfile.photoBase64;
+  else setDefaultAvatarPreview(img);
+  $('profile-msg').innerHTML = '';
+}
+
+window.saveProfile = async function(){
+  const nickname = $('profile-nickname').value.trim();
+  const msgEl = $('profile-msg');
+  if (!nickname) {
+    msgEl.innerHTML = `<div class="error-msg">Escolha um nickname.</div>`;
+    return;
+  }
+  const data = { nickname };
+  if (pendingPhotoBase64.profile) data.photoBase64 = pendingPhotoBase64.profile;
+  try {
+    await updateDoc(doc(db, 'users', currentUser.uid), data);
+    userProfile = { ...userProfile, ...data };
+    msgEl.innerHTML = `<div class="info-msg">Perfil atualizado!</div>`;
+  } catch(e) {
+    console.error(e);
+    msgEl.innerHTML = `<div class="error-msg">Erro ao salvar. Tente novamente.</div>`;
+  }
+};
+
+/* ---------------- Render: Admin ---------------- */
+window.populateAdminTeams = function(){
+  const group = $('admin-group').value;
+  const teamA = $('admin-team-a');
+  const teamB = $('admin-team-b');
+  if (!group) {
+    teamA.innerHTML = '<option value="">Selecione o grupo primeiro</option>';
+    teamB.innerHTML = '<option value="">Selecione o grupo primeiro</option>';
+    return;
+  }
+  const teams = TEAMS_BY_GROUP[group];
+  const options = teams.map(([name, flag]) => `<option value="${name}">${flag} ${name}</option>`).join('');
+  teamA.innerHTML = `<option value="">Selecione...</option>` + options;
+  teamB.innerHTML = `<option value="">Selecione...</option>` + options;
+};
+
+window.createMatch = async function(){
+  const group = $('admin-group').value;
+  const teamA = $('admin-team-a').value;
+  const teamB = $('admin-team-b').value;
+  const datetime = $('admin-datetime').value;
+  const msgEl = $('admin-create-msg');
+
+  if (!group || !teamA || !teamB || !datetime) {
+    msgEl.innerHTML = `<div class="error-msg">Preencha grupo, os dois times e a data.</div>`;
+    return;
+  }
+  if (teamA === teamB) {
+    msgEl.innerHTML = `<div class="error-msg">Os times devem ser diferentes.</div>`;
+    return;
+  }
+  try {
+    await setDoc(doc(collection(db, 'matches')), {
+      group, teamA, teamB, datetime,
+      scoreA: null, scoreB: null, status: 'agendado',
+      createdAt: serverTimestamp()
+    });
+    msgEl.innerHTML = `<div class="info-msg">Jogo criado com sucesso!</div>`;
+    $('admin-team-a').value = '';
+    $('admin-team-b').value = '';
+    $('admin-datetime').value = '';
+  } catch(e) {
+    console.error(e);
+    msgEl.innerHTML = `<div class="error-msg">Erro ao criar o jogo.</div>`;
+  }
+};
+
+function renderAdmin(){
+  const list = $('admin-matches-list');
+  if (allMatches.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="big">🗓️</span>Nenhum jogo cadastrado ainda.</div>`;
+    return;
+  }
+  list.innerHTML = allMatches.map(m => {
+    const flagA = FLAG_BY_NAME[m.teamA] || '🏳️';
+    const flagB = FLAG_BY_NAME[m.teamB] || '🏳️';
+    return `
+      <div class="admin-match-row">
+        <div class="admin-match-top">
+          <span>Grupo ${m.group} · ${fmtDateTime(m.datetime)}</span>
+          <span>${m.status === 'finalizado' ? '✅ Finalizado' : '⏳ Em aberto'}</span>
+        </div>
+        <div class="admin-match-teams">
+          <span>${flagA} ${m.teamA}</span><span style="color:var(--muted);">x</span><span>${flagB} ${m.teamB}</span>
+        </div>
+        <div class="admin-score-row">
+          <input type="number" min="0" max="20" id="admin-score-a-${m.id}" value="${m.scoreA ?? ''}">
+          <span style="font-family:'Anton',sans-serif;color:var(--muted);">x</span>
+          <input type="number" min="0" max="20" id="admin-score-b-${m.id}" value="${m.scoreB ?? ''}">
+        </div>
+        <div class="admin-actions">
+          <button class="btn btn-primary btn-sm" onclick="finalizeMatch('${m.id}')">Salvar resultado</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteMatch('${m.id}')">Excluir</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+window.finalizeMatch = async function(matchId){
+  const a = $('admin-score-a-' + matchId).value;
+  const b = $('admin-score-b-' + matchId).value;
+  if (a === '' || b === '' || isNaN(a) || isNaN(b)) {
+    alert('Informe os dois placares.');
+    return;
+  }
+  await updateDoc(doc(db, 'matches', matchId), {
+    scoreA: Number(a), scoreB: Number(b), status: 'finalizado'
+  });
+};
+
+window.deleteMatch = async function(matchId){
+  if (!confirm('Excluir este jogo? Os palpites relacionados continuarão salvos, mas não serão mais exibidos nem contados.')) return;
+  await deleteDoc(doc(db, 'matches', matchId));
+};
+
+/* ---------------- Auth state ---------------- */
+onAuthStateChanged(auth, async (user) => {
+  hide($('loading'));
+  show($('shell'));
+
+  if (!user) {
+    currentUser = null;
+    userProfile = null;
+    hide($('app'));
+    hide($('onboarding-screen'));
+    show($('auth-screen'));
+    return;
+  }
+
+  currentUser = user;
+  const userDocRef = doc(db, 'users', user.uid);
+  let snap = await getDoc(userDocRef);
+  if (!snap.exists()) {
+    await setDoc(userDocRef, {
+      email: user.email, nickname: '', photoBase64: '', isAdmin: false, createdAt: serverTimestamp()
+    });
+    snap = await getDoc(userDocRef);
+  }
+  userProfile = snap.data();
+
+  if (!userProfile.nickname) {
+    hide($('auth-screen'));
+    hide($('app'));
+    setDefaultAvatarPreview($('onboard-avatar-preview'));
+    show($('onboarding-screen'));
+    return;
+  }
+
+  enterApp();
+});
+</script>
+</body>
+</html>
