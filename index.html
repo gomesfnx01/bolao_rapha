@@ -197,7 +197,7 @@
     background:none;border:none;color:#9FCBB4;
     font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
     display:flex;flex-direction:column;align-items:center;gap:3px;
-    cursor:pointer;padding:6px 14px;border-radius:10px;
+    cursor:pointer;padding:6px 8px;border-radius:10px;
     text-transform:uppercase;letter-spacing:.3px;
   }
   .bottom-nav button .ico{font-size:20px;line-height:1;}
@@ -276,6 +276,35 @@
   .ranking-name .you-tag{font-size:10px;color:var(--amber);background:var(--pitch);padding:2px 6px;border-radius:5px;margin-left:6px;text-transform:uppercase;}
   .ranking-pts{font-family:'Anton',sans-serif;font-size:20px;color:var(--pitch);}
   .ranking-pts span{font-size:10px;color:var(--muted);font-family:'Inter',sans-serif;font-weight:700;margin-left:2px;}
+
+  /* ---------- Palpites de Hoje ---------- */
+  .today-match-head{
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+    font-size:11px;color:var(--muted);margin-bottom:10px;
+    text-transform:uppercase;letter-spacing:.4px;font-weight:700;
+  }
+  .today-score-title{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    font-family:'Anton',sans-serif;font-size:18px;color:var(--pitch);
+    margin-bottom:10px;text-align:center;
+  }
+  .today-pred-row{
+    display:flex;align-items:center;gap:10px;
+    border-top:1px solid var(--line);padding:10px 0;
+  }
+  .today-pred-row:first-child{border-top:none;}
+  .today-pred-name{
+    flex:1;font-size:13px;font-weight:800;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .today-pred-score{
+    font-family:'Anton',sans-serif;font-size:18px;color:var(--pitch);
+    background:#F7F3E7;border-radius:8px;padding:5px 9px;white-space:nowrap;
+  }
+  .today-summary{
+    font-size:12px;color:var(--muted);font-weight:700;text-align:center;
+    margin-top:8px;
+  }
 
   /* ---------- Profile ---------- */
   .profile-head{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
@@ -389,6 +418,16 @@
         <div id="ranking-list"></div>
       </section>
 
+      <!-- PALPITES DE HOJE -->
+      <section id="tab-hoje" class="tab hidden">
+        <div class="section-title">Palpites de hoje</div>
+        <div class="section-sub">Veja os palpites dos usuários somente para os jogos marcados para hoje.</div>
+        <div style="margin-bottom:14px;">
+          <button class="btn btn-ghost btn-sm" onclick="renderPalpitesHoje()">Atualizar lista</button>
+        </div>
+        <div id="today-predictions-list"></div>
+      </section>
+
       <!-- PERFIL -->
       <section id="tab-perfil" class="tab hidden">
         <div class="section-title">Seu perfil</div>
@@ -456,6 +495,9 @@
       </button>
       <button data-tab="ranking" onclick="switchTab('ranking')">
         <span class="ico">🏆</span>Ranking
+      </button>
+      <button data-tab="hoje" onclick="switchTab('hoje')">
+        <span class="ico">👀</span>Hoje
       </button>
       <button data-tab="perfil" onclick="switchTab('perfil')">
         <span class="ico">👤</span>Perfil
@@ -656,6 +698,7 @@ window.switchTab = function(tabName){
   show($('tab-' + tabName));
   document.querySelector(`.bottom-nav button[data-tab="${tabName}"]`).classList.add('active');
   if (tabName === 'ranking') renderRanking();
+  if (tabName === 'hoje') renderPalpitesHoje();
   if (tabName === 'perfil') renderPerfil();
   if (tabName === 'admin') renderAdmin();
 };
@@ -680,6 +723,7 @@ function subscribeMatches(){
   unsubMatches = onSnapshot(q, snap => {
     allMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPalpites();
+    if (!$('tab-hoje').classList.contains('hidden')) renderPalpitesHoje();
     if (!$('tab-admin').classList.contains('hidden')) renderAdmin();
   });
 }
@@ -708,6 +752,37 @@ function fmtDateTime(iso){
   const hh = String(d.getHours()).padStart(2,'0');
   const mi = String(d.getMinutes()).padStart(2,'0');
   return `${dd}/${mm} · ${hh}:${mi}`;
+}
+
+function getTodayBrasiliaDateKey(){
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date());
+  const map = {};
+  parts.forEach(part => map[part.type] = part.value);
+  return `${map.year}-${map.month}-${map.day}`;
+}
+
+function getMatchDateKey(match){
+  if (!match || !match.datetime) return '';
+  // Como o cadastro usa datetime-local em horário de Brasília,
+  // a data do jogo fica nos 10 primeiros caracteres: YYYY-MM-DD.
+  if (/^\d{4}-\d{2}-\d{2}/.test(match.datetime)) {
+    return match.datetime.slice(0, 10);
+  }
+  const d = new Date(match.datetime);
+  if (Number.isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function isMatchToday(match){
+  return getMatchDateKey(match) === getTodayBrasiliaDateKey();
 }
 
 function isMatchLocked(match){
@@ -816,6 +891,15 @@ window.savePrediction = async function(matchId){
   }
   const predId = `${currentUser.uid}_${matchId}`;
   if (!confirm(`Confirmar palpite ${a} x ${b}? Não será possível alterar depois.`)) return;
+
+  // Revalidação após a confirmação: evita salvar se o usuário abriu o alerta antes
+  // do horário do jogo e clicou em OK somente depois do início.
+  if (match.status === 'finalizado' || isMatchLocked(match)) {
+    alert('Palpites encerrados para este jogo. Não é possível palpitar após o horário de início.');
+    renderPalpites();
+    return;
+  }
+
   try {
     await setDoc(doc(db, 'predictions', predId), {
       uid: currentUser.uid,
@@ -832,10 +916,109 @@ window.savePrediction = async function(matchId){
 
 // Atualiza a tela de palpites periodicamente para bloquear jogos que acabaram de começar
 setInterval(() => {
-  if (!$('app').classList.contains('hidden') && !$('tab-palpites').classList.contains('hidden')) {
+  if ($('app').classList.contains('hidden')) return;
+  if (!$('tab-palpites').classList.contains('hidden')) {
     renderPalpites();
   }
+  if (!$('tab-hoje').classList.contains('hidden')) {
+    renderPalpitesHoje();
+  }
 }, 30000);
+
+/* ---------------- Render: Palpites de Hoje ---------------- */
+window.renderPalpitesHoje = async function(){
+  const list = $('today-predictions-list');
+  if (!list) return;
+
+  const todayMatches = allMatches.filter(isMatchToday);
+
+  if (todayMatches.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="big">📅</span>Nenhum jogo marcado para hoje.</div>`;
+    return;
+  }
+
+  list.innerHTML = `<div class="empty-state">Carregando palpites de hoje...</div>`;
+
+  try {
+    const [usersSnap, predsSnap] = await Promise.all([
+      getDocs(collection(db, 'users')),
+      getDocs(collection(db, 'predictions'))
+    ]);
+
+    const usersById = {};
+    usersSnap.docs.forEach(d => {
+      const u = d.data();
+      usersById[d.id] = {
+        nickname: u.nickname || '(sem nome)',
+        photoBase64: u.photoBase64 || ''
+      };
+    });
+
+    const todayMatchIds = new Set(todayMatches.map(m => m.id));
+    const predsByMatch = {};
+
+    predsSnap.docs.forEach(d => {
+      const p = d.data();
+      if (!todayMatchIds.has(p.matchId)) return;
+      if (!predsByMatch[p.matchId]) predsByMatch[p.matchId] = [];
+      predsByMatch[p.matchId].push(p);
+    });
+
+    list.innerHTML = todayMatches.map(m => {
+      const flagA = FLAG_BY_NAME[m.teamA] || '🏳️';
+      const flagB = FLAG_BY_NAME[m.teamB] || '🏳️';
+      const preds = (predsByMatch[m.id] || []).sort((a,b) => {
+        const nameA = usersById[a.uid]?.nickname || '';
+        const nameB = usersById[b.uid]?.nickname || '';
+        return nameA.localeCompare(nameB, 'pt-BR');
+      });
+      const isFinal = m.status === 'finalizado';
+      const isLocked = isMatchLocked(m);
+
+      const statusBadge = isFinal
+        ? `<span class="badge badge-done">Resultado: ${m.scoreA} x ${m.scoreB}</span>`
+        : (isLocked
+          ? `<span class="badge badge-pending">Jogo iniciado</span>`
+          : `<span class="badge badge-pending">Ainda aberto</span>`);
+
+      const predictionRows = preds.length === 0
+        ? `<div class="saved-note" style="padding:12px 0;">— Nenhum usuário palpitou neste jogo ainda —</div>`
+        : preds.map(p => {
+            const u = usersById[p.uid] || { nickname: '(usuário removido)', photoBase64: '' };
+            const pts = calcPoints({ predA: p.predA, predB: p.predB }, m);
+            const pointsBadge = pts === null ? '' : `<span class="badge ${pts === 3 ? 'badge-points-3' : (pts === 1 ? 'badge-points-1' : 'badge-points-0')}">+${pts}</span>`;
+            return `
+              <div class="today-pred-row">
+                ${avatarHTML(u.photoBase64, '⚽', '')}
+                <div class="today-pred-name">${escapeHtml(u.nickname)}</div>
+                <div class="today-pred-score">${p.predA} x ${p.predB}</div>
+                ${pointsBadge}
+              </div>`;
+          }).join('');
+
+      return `
+        <div class="match-card">
+          <div class="today-match-head">
+            <span class="badge badge-group">Grupo ${m.group}</span>
+            <span>${fmtDateTime(m.datetime)}</span>
+          </div>
+          <div class="today-score-title">
+            <span>${flagA} ${escapeHtml(m.teamA)}</span>
+            <span style="color:var(--muted);">x</span>
+            <span>${escapeHtml(m.teamB)} ${flagB}</span>
+          </div>
+          <div class="match-meta" style="justify-content:center;margin-bottom:10px;">
+            ${statusBadge}
+          </div>
+          ${predictionRows}
+          <div class="today-summary">${preds.length} palpite${preds.length === 1 ? '' : 's'} registrado${preds.length === 1 ? '' : 's'}</div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    console.error(e);
+    list.innerHTML = `<div class="error-msg">Não foi possível carregar os palpites de hoje. Verifique as permissões do Firestore.</div>`;
+  }
+};
 
 /* ---------------- Render: Ranking ---------------- */
 async function renderRanking(){
