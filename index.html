@@ -481,7 +481,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs,
-  query, orderBy, onSnapshot, serverTimestamp, deleteDoc
+  query, orderBy, onSnapshot, serverTimestamp, deleteDoc, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // >>>>>>>>>>>>>>>>>>>> PREENCHA COM A CONFIG DO SEU FIREBASE <<<<<<<<<<<<<<<<<<<<
@@ -710,6 +710,13 @@ function fmtDateTime(iso){
   return `${dd}/${mm} · ${hh}:${mi}`;
 }
 
+function isMatchLocked(match){
+  if (!match || !match.datetime) return false;
+  const kickoffTime = new Date(match.datetime).getTime();
+  if (Number.isNaN(kickoffTime)) return false;
+  return Date.now() >= kickoffTime;
+}
+
 function calcPoints(pred, match){
   if (match.status !== 'finalizado' || match.scoreA == null || match.scoreB == null) return null;
   if (pred.predA === match.scoreA && pred.predB === match.scoreB) return 3;
@@ -733,6 +740,7 @@ window.renderPalpites = function(){
     const flagB = FLAG_BY_NAME[m.teamB] || '🏳️';
     const pred = myPredictions[m.id];
     const isFinal = m.status === 'finalizado';
+    const isLocked = isMatchLocked(m);
     const points = pred ? calcPoints(pred, m) : null;
 
     let footer = '';
@@ -744,17 +752,21 @@ window.renderPalpites = function(){
       }
     } else if (isFinal) {
       footer = `<div class="saved-note">— Você não registrou palpite para este jogo —</div>`;
+    } else if (isLocked) {
+      footer = `<div class="saved-note">⏰ Palpites encerrados: o jogo já começou.</div>`;
     } else {
       footer = `<div class="match-footer"><button class="btn btn-primary" onclick="savePrediction('${m.id}')">Salvar palpite</button></div>`;
     }
 
     const valA = pred ? pred.predA : '';
     const valB = pred ? pred.predB : '';
-    const disabled = pred ? 'disabled' : '';
+    const disabled = (pred || isLocked || isFinal) ? 'disabled' : '';
 
     const statusBadge = isFinal
       ? `<span class="badge badge-done">Resultado: ${m.scoreA} x ${m.scoreB}</span>`
-      : `<span class="badge badge-pending">Aguardando jogo</span>`;
+      : (isLocked
+        ? `<span class="badge badge-pending">Palpites encerrados</span>`
+        : `<span class="badge badge-pending">Aguardando jogo</span>`);
 
     return `
       <div class="match-card">
@@ -784,6 +796,17 @@ window.renderPalpites = function(){
 };
 
 window.savePrediction = async function(matchId){
+  const match = allMatches.find(m => m.id === matchId);
+  if (!match) {
+    alert('Jogo não encontrado. Atualize a página e tente novamente.');
+    return;
+  }
+  if (match.status === 'finalizado' || isMatchLocked(match)) {
+    alert('Palpites encerrados para este jogo. Não é possível palpitar após o horário de início.');
+    renderPalpites();
+    return;
+  }
+
   const aEl = $('score-a-' + matchId);
   const bEl = $('score-b-' + matchId);
   const a = aEl.value, b = bEl.value;
@@ -806,6 +829,13 @@ window.savePrediction = async function(matchId){
     alert('Não foi possível salvar o palpite. Tente novamente.');
   }
 };
+
+// Atualiza a tela de palpites periodicamente para bloquear jogos que acabaram de começar
+setInterval(() => {
+  if (!$('app').classList.contains('hidden') && !$('tab-palpites').classList.contains('hidden')) {
+    renderPalpites();
+  }
+}, 30000);
 
 /* ---------------- Render: Ranking ---------------- */
 async function renderRanking(){
@@ -929,6 +959,7 @@ window.createMatch = async function(){
   try {
     await setDoc(doc(collection(db, 'matches')), {
       group, teamA, teamB, datetime,
+      kickoffAt: Timestamp.fromDate(new Date(datetime)),
       scoreA: null, scoreB: null, status: 'agendado',
       createdAt: serverTimestamp()
     });
