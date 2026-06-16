@@ -215,6 +215,30 @@
   .filter-row{display:flex;gap:8px;margin-bottom:14px;}
   .filter-row select{flex:1;}
 
+  .batch-save-box{
+    background:#FFF8E6;
+    border:1px solid #E8DDBE;
+    border-radius:12px;
+    padding:10px;
+    margin-bottom:14px;
+  }
+  .batch-save-note{
+    font-size:11px;
+    color:var(--muted);
+    font-weight:600;
+    line-height:1.35;
+    margin-top:7px;
+    text-align:center;
+  }
+  .batch-save-msg{
+    font-size:12px;
+    font-weight:700;
+    margin-top:8px;
+    text-align:center;
+  }
+  .batch-save-msg.ok{color:var(--green-ok);}
+  .batch-save-msg.err{color:var(--red);}
+
   .match-card{
     background:var(--paper);border:1px solid var(--line);border-radius:14px;
     padding:14px;margin-bottom:12px;
@@ -231,8 +255,10 @@
   .badge-group{background:var(--pitch);color:#fff;}
   .badge-pending{background:#FFF3D6;color:#A6791E;}
   .badge-done{background:#E6F2EB;color:var(--green-ok);}
-  .badge-points-3{background:var(--amber);color:var(--pitch-deep);}
-  .badge-points-1{background:#DDEAE1;color:var(--green-ok);}
+  .badge-points-5{background:var(--amber);color:var(--pitch-deep);}
+  .badge-points-3{background:#EAF3EE;color:var(--green-ok);}
+  .badge-points-2{background:#DDEAE1;color:var(--green-ok);}
+  .badge-points-1{background:#F7F3E7;color:#8A6A10;}
   .badge-points-0{background:#F1ECE0;color:var(--muted);}
 
   .teams-row{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;}
@@ -327,6 +353,90 @@
     min-height:100vh;display:flex;align-items:center;justify-content:center;
     background:var(--pitch-deep);color:var(--amber);font-family:'Anton',sans-serif;font-size:18px;letter-spacing:1px;
   }
+
+  /* ---------- Player MP3 compacto no Topbar ---------- */
+  .topbar-content-row{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:10px;
+    margin-top:4px;
+  }
+  .topbar-sub-group{
+    flex:1;
+    min-width:0;
+  }
+  #music-player-mini{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    width:170px;
+    max-width:42%;
+    min-width:135px;
+    padding-left:8px;
+    border-left:1px solid rgba(255,197,61,.28);
+    color:#9FCBB4;
+  }
+  .music-icon{
+    color:var(--amber);
+    font-size:13px;
+    line-height:1;
+    opacity:.9;
+    flex-shrink:0;
+  }
+  .music-info{
+    flex:1;
+    min-width:0;
+  }
+  .music-title{
+    font-size:10.5px;
+    font-weight:800;
+    color:#fff;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    line-height:1.15;
+  }
+  .music-artist{
+    font-size:9.5px;
+    font-weight:600;
+    color:#9FCBB4;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    line-height:1.15;
+    margin-top:2px;
+  }
+  .music-btn{
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    border:1.3px solid var(--amber);
+    background:transparent;
+    color:var(--amber);
+    font-size:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:background .15s,color .15s,transform .05s;
+    flex-shrink:0;
+    padding-left:1px;
+  }
+  .music-btn:active{transform:scale(.94);}
+  .music-btn.playing{background:var(--amber);color:var(--pitch-deep);}
+  .music-time,
+  .music-progress,
+  .music-volume,
+  .music-status{
+    display:none;
+  }
+  @media (max-width:360px){
+    #music-player-mini{width:142px;min-width:120px;gap:5px;padding-left:6px;}
+    .music-icon{display:none;}
+    .music-title{font-size:10px;}
+    .music-artist{font-size:9px;}
+  }
 </style>
 </head>
 <body>
@@ -380,8 +490,25 @@
   <div id="app" class="hidden">
     <header class="topbar">
       <h1>Bolão <span class="titulo-hardcore text-red-500">HARDCORE -</span> <span style="color:var(--amber);">Copa 2026</span></h1>
-      <div class="sub" id="topbar-sub">Fase de grupos</div>
-      <div class="sub">Valendo o que? Não sei ainda...</div>
+      <div class="topbar-content-row">
+        <div class="topbar-sub-group">
+          <div class="sub" id="topbar-sub">Fase de grupos</div>
+          <div class="sub">Valendo o que? Não sei ainda...</div>
+          <div class="sub">Música escolhida pelo 1° do ranking</div>
+        </div>
+        <div id="music-player-mini" aria-label="Player MP3 local">
+          <span class="music-icon" aria-hidden="true">♪</span>
+          <div class="music-info">
+            <div class="music-title" id="music-title">Nome da música</div>
+            <div class="music-artist" id="music-artist">Nome do artista</div>
+          </div>
+          <button class="music-btn" id="music-play-btn" onclick="toggleLocalMusic()" title="Play/Pause">▶</button>
+          <span class="music-status" id="music-status">Parado</span>
+          <input type="range" class="music-progress" id="music-progress" min="0" max="100" value="0" step="0.1" oninput="seekLocalMusic(this.value)" title="Progresso">
+          <input type="range" class="music-volume" id="music-volume" min="0" max="1" step="0.05" value="0.8" oninput="setLocalMusicVolume(this.value)" title="Volume">
+          <div class="music-time" id="music-current-time">0:00</div>
+        </div>
+      </div>
     </header>
 
     <main>
@@ -406,15 +533,20 @@
             <option value="L">Grupo L</option>
           </select>
         </div>
+        <div class="batch-save-box">
+          <button class="btn btn-primary" id="save-all-predictions-btn" onclick="saveAllPredictions()">Salvar palpites preenchidos</button>
+          <div class="batch-save-note">Preencha os jogos desejados e salve todos de uma vez. Palpites já salvos não podem ser alterados.</div>
+          <div id="batch-save-msg" class="batch-save-msg"></div>
+        </div>
         <div id="palpites-list"></div>
       </section>
 
       <!-- RANKING -->
       <section id="tab-ranking" class="tab hidden">
         <div class="section-title">Ranking geral</div>
-        <div class="section-sub">Placar exato (conta empate) = 3 pts<br>
-                                Placar errado, acertar vencedor = 1 pt<br>
-                                Empate com placar errado = 1 pt</div>
+        <div class="section-sub">Placar exato (incluindo empate) = 5 pts<br>
+                                Acertar vencedor ou empate com placar errado = +2 pts<br>
+                                Acertar placar de uma equipe = +1 pt</div>
         <div id="ranking-list"></div>
       </section>
 
@@ -507,6 +639,7 @@
       </button>
     </nav>
   </div>
+
 </div>
 
 <script type="module">
@@ -564,6 +697,7 @@ let currentUser = null;
 let userProfile = null;
 let allMatches = [];           // [{id, group, teamA, teamB, datetime, scoreA, scoreB, status}]
 let myPredictions = {};        // matchId -> {predA, predB}
+let predictionDrafts = {};     // matchId -> {predA, predB} temporário enquanto o usuário preenche
 let unsubMatches = null;
 let unsubMyPreds = null;
 let pendingPhotoBase64 = { onboard: null, profile: null };
@@ -714,6 +848,7 @@ function enterApp(){
 
   subscribeMatches();
   subscribeMyPredictions();
+  tryAutoStartLocalMusic();
 }
 
 /* ---------------- Firestore: jogos ---------------- */
@@ -794,13 +929,80 @@ function isMatchLocked(match){
 
 function calcPoints(pred, match){
   if (match.status !== 'finalizado' || match.scoreA == null || match.scoreB == null) return null;
-  if (pred.predA === match.scoreA && pred.predB === match.scoreB) return 3;
-  const predDiff = Math.sign(pred.predA - pred.predB);
-  const realDiff = Math.sign(match.scoreA - match.scoreB);
-  return predDiff === realDiff ? 1 : 0;
+
+  const predA = Number(pred.predA);
+  const predB = Number(pred.predB);
+  const scoreA = Number(match.scoreA);
+  const scoreB = Number(match.scoreB);
+
+  // 5 pts: placar exato, incluindo empate exato
+  if (predA === scoreA && predB === scoreB) return 5;
+
+  let points = 0;
+
+  // +2 pts: acertou o vencedor ou acertou que seria empate, mas sem placar exato
+  const predDiff = Math.sign(predA - predB);
+  const realDiff = Math.sign(scoreA - scoreB);
+  if (predDiff === realDiff) points += 2;
+
+  // +1 pt: acertou o placar de uma das equipes
+  if (predA === scoreA || predB === scoreB) points += 1;
+
+  return points;
 }
 
+function pointsBadgeClass(points){
+  if (points === 5) return 'badge-points-5';
+  if (points === 3) return 'badge-points-3';
+  if (points === 2) return 'badge-points-2';
+  if (points === 1) return 'badge-points-1';
+  return 'badge-points-0';
+}
+
+
+function setBatchSaveMsg(text, type=''){
+  const el = $('batch-save-msg');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'batch-save-msg' + (type ? ` ${type}` : '');
+}
+
+function capturePredictionDraftsFromDOM(){
+  document.querySelectorAll('input[id^="score-a-"]').forEach(aEl => {
+    const matchId = aEl.id.replace('score-a-', '');
+    const bEl = $('score-b-' + matchId);
+    if (!bEl || aEl.disabled || bEl.disabled) return;
+
+    const a = aEl.value;
+    const b = bEl.value;
+
+    if (a === '' && b === '') {
+      delete predictionDrafts[matchId];
+      return;
+    }
+
+    predictionDrafts[matchId] = { predA: a, predB: b };
+  });
+}
+
+window.updatePredictionDraft = function(matchId){
+  const aEl = $('score-a-' + matchId);
+  const bEl = $('score-b-' + matchId);
+  if (!aEl || !bEl || aEl.disabled || bEl.disabled) return;
+
+  const a = aEl.value;
+  const b = bEl.value;
+
+  if (a === '' && b === '') {
+    delete predictionDrafts[matchId];
+    return;
+  }
+
+  predictionDrafts[matchId] = { predA: a, predB: b };
+};
+
 window.renderPalpites = function(){
+  capturePredictionDraftsFromDOM();
   const list = $('palpites-list');
   const filter = $('group-filter').value;
   const matches = allMatches.filter(m => filter === 'all' || m.group === filter);
@@ -822,7 +1024,7 @@ window.renderPalpites = function(){
     if (pred) {
       footer = `<div class="saved-note">✅ Palpite salvo: ${m.teamA} ${pred.predA} x ${pred.predB} ${m.teamB}</div>`;
       if (isFinal && points !== null) {
-        const cls = points === 3 ? 'badge-points-3' : (points === 1 ? 'badge-points-1' : 'badge-points-0');
+        const cls = pointsBadgeClass(points);
         footer += `<div class="result-note"><span class="badge ${cls}">+${points} pt${points===1?'':'s'}</span></div>`;
       }
     } else if (isFinal) {
@@ -830,12 +1032,15 @@ window.renderPalpites = function(){
     } else if (isLocked) {
       footer = `<div class="saved-note">⏰ Palpites encerrados: o jogo já começou.</div>`;
     } else {
-      footer = `<div class="match-footer"><button class="btn btn-primary" onclick="savePrediction('${m.id}')">Salvar palpite</button></div>`;
+      footer = `<div class="saved-note">Preencha o placar e use o botão "Salvar palpites preenchidos".</div>`;
     }
 
-    const valA = pred ? pred.predA : '';
-    const valB = pred ? pred.predB : '';
-    const disabled = (pred || isLocked || isFinal) ? 'disabled' : '';
+    const draft = predictionDrafts[m.id] || {};
+    const valA = pred ? pred.predA : (draft.predA ?? '');
+    const valB = pred ? pred.predB : (draft.predB ?? '');
+    const disableInputs = Boolean(pred || isLocked || isFinal);
+    const disabled = disableInputs ? 'disabled' : '';
+    const inputEvents = disableInputs ? '' : `oninput="updatePredictionDraft('${m.id}')"`;
 
     const statusBadge = isFinal
       ? `<span class="badge badge-done">Resultado: ${m.scoreA} x ${m.scoreB}</span>`
@@ -853,13 +1058,13 @@ window.renderPalpites = function(){
           <div class="team-col">
             <div class="flag">${flagA}</div>
             <div class="name">${m.teamA}</div>
-            <input type="number" min="0" max="20" class="score-box" id="score-a-${m.id}" value="${valA}" ${disabled}>
+            <input type="number" min="0" max="20" class="score-box" id="score-a-${m.id}" value="${valA}" ${disabled} ${inputEvents}>
           </div>
           <div class="versus">x</div>
           <div class="team-col">
             <div class="flag">${flagB}</div>
             <div class="name">${m.teamB}</div>
-            <input type="number" min="0" max="20" class="score-box" id="score-b-${m.id}" value="${valB}" ${disabled}>
+            <input type="number" min="0" max="20" class="score-box" id="score-b-${m.id}" value="${valB}" ${disabled} ${inputEvents}>
           </div>
         </div>
         <div class="match-meta" style="margin-top:10px;margin-bottom:0;justify-content:center;">
@@ -870,51 +1075,112 @@ window.renderPalpites = function(){
   }).join('');
 };
 
-window.savePrediction = async function(matchId){
-  const match = allMatches.find(m => m.id === matchId);
-  if (!match) {
-    alert('Jogo não encontrado. Atualize a página e tente novamente.');
+window.saveAllPredictions = async function(){
+  capturePredictionDraftsFromDOM();
+  setBatchSaveMsg('', '');
+
+  const filter = $('group-filter').value;
+  const matches = allMatches.filter(m => filter === 'all' || m.group === filter);
+  const toSave = [];
+  const partials = [];
+  const locked = [];
+
+  matches.forEach(m => {
+    if (myPredictions[m.id]) return;
+
+    const aEl = $('score-a-' + m.id);
+    const bEl = $('score-b-' + m.id);
+    const draft = predictionDrafts[m.id] || {};
+    const aRaw = aEl ? aEl.value : (draft.predA ?? '');
+    const bRaw = bEl ? bEl.value : (draft.predB ?? '');
+
+    if (aRaw === '' && bRaw === '') return;
+
+    if (m.status === 'finalizado' || isMatchLocked(m)) {
+      locked.push(`${m.teamA} x ${m.teamB}`);
+      return;
+    }
+
+    if (aRaw === '' || bRaw === '') {
+      partials.push(`${m.teamA} x ${m.teamB}`);
+      return;
+    }
+
+    const a = Number(aRaw);
+    const b = Number(bRaw);
+
+    if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a > 20 || b > 20) {
+      partials.push(`${m.teamA} x ${m.teamB}`);
+      return;
+    }
+
+    toSave.push({ match: m, predA: a, predB: b });
+  });
+
+  if (partials.length > 0) {
+    alert('Há jogos com placar incompleto ou inválido:\n\n' + partials.join('\n') + '\n\nPreencha os dois lados do placar ou limpe os campos.');
+    setBatchSaveMsg('Corrija os placares incompletos antes de salvar.', 'err');
     return;
   }
-  if (match.status === 'finalizado' || isMatchLocked(match)) {
-    alert('Palpites encerrados para este jogo. Não é possível palpitar após o horário de início.');
+
+  if (locked.length > 0) {
+    alert('Alguns palpites não podem mais ser salvos porque o jogo já começou ou foi finalizado:\n\n' + locked.join('\n'));
+  }
+
+  if (toSave.length === 0) {
+    setBatchSaveMsg('Nenhum palpite novo preenchido para salvar.', 'err');
+    return;
+  }
+
+  const resumo = toSave.map(item => `${item.match.teamA} ${item.predA} x ${item.predB} ${item.match.teamB}`).join('\n');
+  if (!confirm(`Confirmar ${toSave.length} palpite${toSave.length === 1 ? '' : 's'}?\n\n${resumo}\n\nDepois de salvar, não será possível alterar.`)) return;
+
+  const stillLocked = toSave.filter(item => item.match.status === 'finalizado' || isMatchLocked(item.match));
+  if (stillLocked.length > 0) {
+    alert('Algum jogo começou enquanto você confirmava. Revise os palpites e tente novamente.');
     renderPalpites();
     return;
   }
 
-  const aEl = $('score-a-' + matchId);
-  const bEl = $('score-b-' + matchId);
-  const a = aEl.value, b = bEl.value;
-  if (a === '' || b === '' || isNaN(a) || isNaN(b) || a < 0 || b < 0) {
-    alert('Preencha os dois placares com números válidos (0 ou mais).');
-    return;
-  }
-  const predId = `${currentUser.uid}_${matchId}`;
-  if (!confirm(`Confirmar palpite ${a} x ${b}? Não será possível alterar depois.`)) return;
-
-  // Revalidação após a confirmação: evita salvar se o usuário abriu o alerta antes
-  // do horário do jogo e clicou em OK somente depois do início.
-  if (match.status === 'finalizado' || isMatchLocked(match)) {
-    alert('Palpites encerrados para este jogo. Não é possível palpitar após o horário de início.');
-    renderPalpites();
-    return;
+  const btn = $('save-all-predictions-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
   }
 
   try {
-    await setDoc(doc(db, 'predictions', predId), {
-      uid: currentUser.uid,
-      matchId,
-      predA: Number(a),
-      predB: Number(b),
-      createdAt: serverTimestamp()
-    });
+    await Promise.all(toSave.map(item => {
+      const predId = `${currentUser.uid}_${item.match.id}`;
+      return setDoc(doc(db, 'predictions', predId), {
+        uid: currentUser.uid,
+        matchId: item.match.id,
+        predA: item.predA,
+        predB: item.predB,
+        createdAt: serverTimestamp()
+      });
+    }));
+
+    toSave.forEach(item => delete predictionDrafts[item.match.id]);
+    setBatchSaveMsg(`${toSave.length} palpite${toSave.length === 1 ? '' : 's'} salvo${toSave.length === 1 ? '' : 's'} com sucesso!`, 'ok');
+    renderPalpites();
   } catch (e) {
     console.error(e);
-    alert('Não foi possível salvar o palpite. Tente novamente.');
+    setBatchSaveMsg('Não foi possível salvar os palpites. Tente novamente.', 'err');
+    alert('Não foi possível salvar os palpites. Tente novamente.');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Salvar palpites preenchidos';
+    }
   }
 };
 
-// Atualiza a tela de palpites periodicamente para bloquear jogos que acabaram de começar
+// Mantido apenas por compatibilidade, caso exista algum botão antigo em cache.
+window.savePrediction = async function(matchId){
+  await window.saveAllPredictions();
+};
+
+// Atualiza a tela periodicamente. A trava real continua acontecendo no momento de salvar.
 setInterval(() => {
   if ($('app').classList.contains('hidden')) return;
   if (!$('tab-palpites').classList.contains('hidden')) {
@@ -923,7 +1189,7 @@ setInterval(() => {
   if (!$('tab-hoje').classList.contains('hidden')) {
     renderPalpitesHoje();
   }
-}, 30000);
+}, 120000);
 
 /* ---------------- Render: Palpites de Hoje ---------------- */
 window.renderPalpitesHoje = async function(){
@@ -986,7 +1252,7 @@ window.renderPalpitesHoje = async function(){
         : preds.map(p => {
             const u = usersById[p.uid] || { nickname: '(usuário removido)', photoBase64: '' };
             const pts = calcPoints({ predA: p.predA, predB: p.predB }, m);
-            const pointsBadge = pts === null ? '' : `<span class="badge ${pts === 3 ? 'badge-points-3' : (pts === 1 ? 'badge-points-1' : 'badge-points-0')}">+${pts}</span>`;
+            const pointsBadge = pts === null ? '' : `<span class="badge ${pointsBadgeClass(pts)}">+${pts}</span>`;
             return `
               <div class="today-pred-row">
                 ${avatarHTML(u.photoBase64, '⚽', '')}
@@ -1203,6 +1469,158 @@ window.deleteMatch = async function(matchId){
   if (!confirm('Excluir este jogo? Os palpites relacionados continuarão salvos, mas não serão mais exibidos nem contados.')) return;
   await deleteDoc(doc(db, 'matches', matchId));
 };
+
+/* ================================================================
+   PLAYER MP3 LOCAL — arquivo dentro da pasta do projeto
+   Coloque o arquivo em: /audio/musica-teste.mp3
+   Depois altere abaixo o nome, artista e caminho se quiser.
+   ================================================================ */
+const LOCAL_MUSIC = {
+  title: 'Ignorance',
+  artist: 'Paramore',
+  src: './audio/ignorance.mp3'
+};
+
+let localMusicAudio = null;
+let localMusicPlaying = false;
+let localMusicDuration = 0;
+let localMusicAutoplayTried = false;
+let localMusicAutoplayBlocked = false;
+
+function getMusicEls(){
+  return {
+    title: document.getElementById('music-title'),
+    artist: document.getElementById('music-artist'),
+    btn: document.getElementById('music-play-btn'),
+    status: document.getElementById('music-status'),
+    progress: document.getElementById('music-progress'),
+    volume: document.getElementById('music-volume'),
+    currentTime: document.getElementById('music-current-time'),
+  };
+}
+
+function formatMusicTime(seconds){
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const min = Math.floor(seconds / 60);
+  const sec = Math.floor(seconds % 60);
+  return `${min}:${String(sec).padStart(2, '0')}`;
+}
+
+function setLocalMusicUI(playing){
+  const { btn, status } = getMusicEls();
+  localMusicPlaying = playing;
+  btn.textContent = playing ? '⏸' : '▶';
+  btn.classList.toggle('playing', playing);
+  status.textContent = playing ? 'Tocando' : 'Parado';
+  status.className = 'music-status' + (playing ? ' playing' : '');
+}
+
+function initLocalMusic(){
+  const els = getMusicEls();
+  els.title.textContent = LOCAL_MUSIC.title;
+  els.artist.textContent = LOCAL_MUSIC.artist;
+  els.status.textContent = 'Parado';
+  els.currentTime.textContent = '0:00';
+
+  localMusicAudio = new Audio(LOCAL_MUSIC.src);
+  localMusicAudio.preload = 'auto';
+  localMusicAudio.autoplay = true;
+  localMusicAudio.volume = parseFloat(els.volume?.value || 0.8);
+
+  localMusicAudio.addEventListener('loadedmetadata', () => {
+    localMusicDuration = localMusicAudio.duration || 0;
+  });
+
+  localMusicAudio.addEventListener('timeupdate', () => {
+    if (!localMusicAudio || !localMusicDuration) return;
+    const percent = (localMusicAudio.currentTime / localMusicDuration) * 100;
+    els.progress.value = String(percent || 0);
+    els.currentTime.textContent = formatMusicTime(localMusicAudio.currentTime);
+  });
+
+  localMusicAudio.addEventListener('playing', () => {
+    setLocalMusicUI(true);
+  });
+
+  localMusicAudio.addEventListener('pause', () => {
+    setLocalMusicUI(false);
+  });
+
+  localMusicAudio.addEventListener('ended', () => {
+    setLocalMusicUI(false);
+    els.progress.value = '0';
+    els.currentTime.textContent = '0:00';
+    localMusicAudio.currentTime = 0;
+  });
+
+  localMusicAudio.addEventListener('error', () => {
+    console.error('Erro ao carregar MP3 local:', LOCAL_MUSIC.src, localMusicAudio?.error);
+    setLocalMusicUI(false);
+    els.status.textContent = 'Arquivo não encontrado';
+    els.title.textContent = 'MP3 não carregou';
+    els.artist.textContent = 'Confira a pasta /audio e o nome do arquivo';
+  });
+}
+
+window.toggleLocalMusic = function(){
+  if (!localMusicAudio) initLocalMusic();
+
+  if (localMusicPlaying) {
+    localMusicAudio.pause();
+    return;
+  }
+
+  localMusicAudio.play().then(() => {
+    localMusicAutoplayBlocked = false;
+  }).catch(err => {
+    console.warn('Erro ao tocar MP3 local:', err);
+    const els = getMusicEls();
+    els.status.textContent = 'Toque novamente';
+  });
+};
+
+window.setLocalMusicVolume = function(v){
+  if (!localMusicAudio) initLocalMusic();
+  localMusicAudio.volume = parseFloat(v);
+};
+
+window.seekLocalMusic = function(value){
+  if (!localMusicAudio || !localMusicDuration) return;
+  const percent = Number(value) / 100;
+  localMusicAudio.currentTime = localMusicDuration * percent;
+};
+
+function tryAutoStartLocalMusic(){
+  if (localMusicAutoplayTried) return;
+  localMusicAutoplayTried = true;
+  if (!localMusicAudio) initLocalMusic();
+
+  localMusicAudio.play().then(() => {
+    localMusicAutoplayBlocked = false;
+  }).catch(err => {
+    console.warn('Autoplay do MP3 bloqueado pelo navegador:', err);
+    localMusicAutoplayBlocked = true;
+    const els = getMusicEls();
+    els.status.textContent = 'Clique ▶';
+
+    const unlock = () => {
+      if (!localMusicAutoplayBlocked || localMusicPlaying) return;
+      localMusicAudio.play().then(() => {
+        localMusicAutoplayBlocked = false;
+        document.removeEventListener('click', unlock);
+        document.removeEventListener('touchstart', unlock);
+      }).catch(() => {});
+    };
+
+    document.addEventListener('click', unlock);
+    document.addEventListener('touchstart', unlock);
+  });
+}
+
+initLocalMusic();
+
+/* ================================================================ */
+
 
 /* ---------------- Auth state ---------------- */
 onAuthStateChanged(auth, async (user) => {
