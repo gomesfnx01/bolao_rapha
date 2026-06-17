@@ -115,7 +115,7 @@
     margin-bottom:6px;
     margin-top:14px;
   }
-  input[type=text],input[type=email],input[type=password],input[type=datetime-local],select{
+  input[type=text],input[type=email],input[type=password],input[type=datetime-local],select,textarea{
     width:100%;
     padding:12px 14px;
     border:1.5px solid var(--line);
@@ -125,7 +125,8 @@
     background:#fff;
     color:var(--ink);
   }
-  input:focus,select:focus{outline:2px solid var(--amber);border-color:var(--amber);}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--amber);border-color:var(--amber);}
+  textarea{min-height:86px;resize:vertical;line-height:1.35;}
   .error-msg{
     background:#FBEAEA;color:var(--red);font-size:13px;font-weight:600;
     padding:10px 12px;border-radius:8px;margin-top:12px;
@@ -303,6 +304,97 @@
   .ranking-pts{font-family:'Anton',sans-serif;font-size:20px;color:var(--pitch);}
   .ranking-pts span{font-size:10px;color:var(--muted);font-family:'Inter',sans-serif;font-weight:700;margin-left:2px;}
 
+  .ranking-row.champion-row{
+    position:relative;
+    border-color:var(--amber);
+    background:linear-gradient(90deg,#FFF8E6 0%,#FFFFFF 62%);
+    animation:leaderPulse 1.8s ease-in-out infinite;
+    overflow:hidden;
+  }
+  .ranking-row.champion-row::after{
+    content:"🎸";
+    position:absolute;
+    right:10px;
+    top:-2px;
+    font-size:18px;
+    opacity:.22;
+    transform:rotate(-18deg);
+  }
+  @keyframes leaderPulse{
+    0%,100%{box-shadow:0 0 0 rgba(255,197,61,0);}
+    50%{box-shadow:0 0 18px rgba(255,197,61,.55);}
+  }
+  .daily-music-card{
+    background:#FFF8E6;
+    border:1.5px solid #E8DDBE;
+    border-radius:14px;
+    padding:14px;
+    margin-bottom:14px;
+  }
+  .daily-music-title{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:'Anton',sans-serif;
+    font-size:18px;
+    color:var(--pitch);
+    text-transform:uppercase;
+    letter-spacing:.4px;
+  }
+  .daily-music-text{
+    font-size:13px;
+    color:var(--ink);
+    line-height:1.35;
+    margin-top:8px;
+    font-weight:600;
+  }
+  .daily-music-text.muted{color:var(--muted);}
+  .daily-music-choice{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 12px;
+    margin-top:10px;
+    font-size:13px;
+    font-weight:800;
+    color:var(--pitch);
+    line-height:1.35;
+    white-space:pre-wrap;
+  }
+  .daily-music-msg{
+    margin-top:8px;
+    font-size:12px;
+    font-weight:800;
+    text-align:center;
+  }
+  .daily-music-msg.ok{color:var(--green-ok);}
+  .daily-music-msg.err{color:var(--red);}
+
+  /* ---------- Histórico ---------- */
+  .history-card{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px;
+    margin-bottom:12px;
+  }
+  .history-score-row{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    align-items:center;
+    margin-top:10px;
+    font-size:12px;
+    color:var(--muted);
+    font-weight:800;
+  }
+  .history-score-row strong{
+    color:var(--pitch);
+    font-family:'Anton',sans-serif;
+    font-size:18px;
+    font-weight:400;
+  }
+
   /* ---------- Palpites de Hoje ---------- */
   .today-match-head{
     display:flex;justify-content:space-between;align-items:center;gap:8px;
@@ -347,6 +439,14 @@
   .admin-score-row input{width:60px;text-align:center;font-family:'Anton',sans-serif;font-size:18px;padding:8px;}
   .admin-actions{display:flex;gap:8px;margin-top:10px;}
   .admin-actions .btn{flex:1;}
+
+
+  .admin-tab-switch{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .admin-tab-switch .btn{flex:1;}
 
   /* loading */
   #loading{
@@ -425,6 +525,14 @@
   }
   .music-btn:active{transform:scale(.94);}
   .music-btn.playing{background:var(--amber);color:var(--pitch-deep);}
+  .music-choice-sub{
+    color:#fff;
+    font-weight:800;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:230px;
+  }
   .music-time,
   .music-progress,
   .music-volume,
@@ -493,7 +601,8 @@
       <div class="topbar-content-row">
         <div class="topbar-sub-group">
           <div class="sub" id="topbar-sub">Fase de grupos</div>
-          <div class="sub">Música do 1° do ranking</div>
+          <div class="sub" id="music-choice-label">Música do 1° do ranking</div>
+          <div class="sub music-choice-sub hidden" id="music-choice-text"></div>
         </div>
         <div id="music-player-mini" aria-label="Player MP3 local">
           <span class="music-icon" aria-hidden="true">♪</span>
@@ -513,25 +622,8 @@
     <main>
       <!-- PALPITES -->
       <section id="tab-palpites" class="tab">
-        <div class="section-title">Seus palpites</div>
-        <div class="section-sub">Escolha o placar de cada jogo. Depois de salvar, não é possível alterar.</div>
-        <div class="filter-row">
-          <select id="group-filter" onchange="renderPalpites()">
-            <option value="all">Todos os grupos</option>
-            <option value="A">Grupo A</option>
-            <option value="B">Grupo B</option>
-            <option value="C">Grupo C</option>
-            <option value="D">Grupo D</option>
-            <option value="E">Grupo E</option>
-            <option value="F">Grupo F</option>
-            <option value="G">Grupo G</option>
-            <option value="H">Grupo H</option>
-            <option value="I">Grupo I</option>
-            <option value="J">Grupo J</option>
-            <option value="K">Grupo K</option>
-            <option value="L">Grupo L</option>
-          </select>
-        </div>
+        <div class="section-title">Palpites de hoje</div>
+        <div class="section-sub">Aqui aparecem somente os jogos cadastrados para hoje. Palpites antigos ficam na aba Histórico.</div>
         <div class="batch-save-box">
           <button class="btn btn-primary" id="save-all-predictions-btn" onclick="saveAllPredictions()">Salvar palpites preenchidos</button>
           <div class="batch-save-note">Preencha os jogos desejados e salve todos de uma vez. Palpites já salvos não podem ser alterados.</div>
@@ -540,12 +632,23 @@
         <div id="palpites-list"></div>
       </section>
 
+      <!-- HISTÓRICO -->
+      <section id="tab-historico" class="tab hidden">
+        <div class="section-title">Histórico</div>
+        <div class="section-sub">Consulte seus palpites anteriores, o resultado oficial e a pontuação ganha em cada jogo.</div>
+        <div style="margin-bottom:14px;">
+          <button class="btn btn-ghost btn-sm" onclick="renderHistorico()">Atualizar histórico</button>
+        </div>
+        <div id="historico-list"></div>
+      </section>
+
       <!-- RANKING -->
       <section id="tab-ranking" class="tab hidden">
         <div class="section-title">Ranking geral</div>
         <div class="section-sub">Placar exato (incluindo empate) = 5 pts<br>
                                 Acertar vencedor ou empate com placar errado = +2 pts<br>
                                 Acertar placar de uma equipe = +1 pt</div>
+        <div id="daily-music-choice-box"></div>
         <div id="ranking-list"></div>
       </section>
 
@@ -614,7 +717,11 @@
           <div id="admin-create-msg"></div>
         </div>
 
-        <div style="font-weight:800;font-size:14px;color:var(--pitch);margin-bottom:8px;">Jogos cadastrados</div>
+        <div class="admin-tab-switch">
+          <button class="btn btn-primary btn-sm" id="admin-open-tab" onclick="setAdminMatchView('open')">Jogos em aberto</button>
+          <button class="btn btn-ghost btn-sm" id="admin-finalized-tab" onclick="setAdminMatchView('finalized')">Jogos finalizados</button>
+        </div>
+        <div id="admin-list-title" style="font-weight:800;font-size:14px;color:var(--pitch);margin-bottom:8px;">Jogos em aberto</div>
         <div id="admin-matches-list"></div>
       </section>
     </main>
@@ -623,6 +730,9 @@
     <nav class="bottom-nav">
       <button data-tab="palpites" class="active" onclick="switchTab('palpites')">
         <span class="ico">⚽</span>Palpites
+      </button>
+      <button data-tab="historico" onclick="switchTab('historico')">
+        <span class="ico">📜</span>Histórico
       </button>
       <button data-tab="ranking" onclick="switchTab('ranking')">
         <span class="ico">🏆</span>Ranking
@@ -697,8 +807,12 @@ let userProfile = null;
 let allMatches = [];           // [{id, group, teamA, teamB, datetime, scoreA, scoreB, status}]
 let myPredictions = {};        // matchId -> {predA, predB}
 let predictionDrafts = {};     // matchId -> {predA, predB} temporário enquanto o usuário preenche
+let dailyMusicSelection = null; // escolha de música do 1º do ranking do dia anterior
+let dailyMusicDateKey = '';
+let adminMatchView = 'open';
 let unsubMatches = null;
 let unsubMyPreds = null;
+let unsubDailyMusic = null;
 let pendingPhotoBase64 = { onboard: null, profile: null };
 
 /* ---------------- Helpers ---------------- */
@@ -804,6 +918,7 @@ function traduzErroFirebase(code){
 window.doLogout = async function(){
   if (unsubMatches) unsubMatches();
   if (unsubMyPreds) unsubMyPreds();
+  if (unsubDailyMusic) unsubDailyMusic();
   await signOut(auth);
 };
 
@@ -830,6 +945,7 @@ window.switchTab = function(tabName){
   document.querySelectorAll('.bottom-nav button').forEach(el => el.classList.remove('active'));
   show($('tab-' + tabName));
   document.querySelector(`.bottom-nav button[data-tab="${tabName}"]`).classList.add('active');
+  if (tabName === 'historico') renderHistorico();
   if (tabName === 'ranking') renderRanking();
   if (tabName === 'hoje') renderPalpitesHoje();
   if (tabName === 'perfil') renderPerfil();
@@ -847,6 +963,7 @@ function enterApp(){
 
   subscribeMatches();
   subscribeMyPredictions();
+  subscribeDailyMusicSelection();
   tryAutoStartLocalMusic();
 }
 
@@ -857,6 +974,9 @@ function subscribeMatches(){
   unsubMatches = onSnapshot(q, snap => {
     allMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPalpites();
+    updateTopbarMusicChoice();
+    if (!$('tab-historico').classList.contains('hidden')) renderHistorico();
+    if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
     if (!$('tab-hoje').classList.contains('hidden')) renderPalpitesHoje();
     if (!$('tab-admin').classList.contains('hidden')) renderAdmin();
   });
@@ -874,6 +994,24 @@ function subscribeMyPredictions(){
       }
     });
     renderPalpites();
+    if (!$('tab-historico').classList.contains('hidden')) renderHistorico();
+    if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
+  });
+}
+
+function subscribeDailyMusicSelection(){
+  if (unsubDailyMusic) unsubDailyMusic();
+  dailyMusicDateKey = getYesterdayBrasiliaDateKey();
+  dailyMusicSelection = null;
+  updateTopbarMusicChoice();
+
+  unsubDailyMusic = onSnapshot(doc(db, 'musicSelections', dailyMusicDateKey), snap => {
+    dailyMusicSelection = snap.exists() ? snap.data() : null;
+    updateTopbarMusicChoice();
+    if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
+  }, err => {
+    console.warn('Não foi possível acompanhar a escolha de música:', err);
+    updateTopbarMusicChoice();
   });
 }
 
@@ -898,6 +1036,48 @@ function getTodayBrasiliaDateKey(){
   const map = {};
   parts.forEach(part => map[part.type] = part.value);
   return `${map.year}-${map.month}-${map.day}`;
+}
+
+function getBrasiliaDateKeyByOffset(offsetDays=0){
+  const todayKey = getTodayBrasiliaDateKey();
+  const base = new Date(`${todayKey}T12:00:00-03:00`);
+  base.setDate(base.getDate() + offsetDays);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(base);
+  const map = {};
+  parts.forEach(part => map[part.type] = part.value);
+  return `${map.year}-${map.month}-${map.day}`;
+}
+
+function getYesterdayBrasiliaDateKey(){
+  return getBrasiliaDateKeyByOffset(-1);
+}
+
+function formatDateKeyBR(dateKey){
+  if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return '';
+  const [yyyy, mm, dd] = dateKey.split('-');
+  return `${dd}/${mm}`;
+}
+
+function updateTopbarMusicChoice(){
+  const label = $('music-choice-label');
+  const textEl = $('music-choice-text');
+  if (!label || !textEl) return;
+  const dateKey = dailyMusicDateKey || getYesterdayBrasiliaDateKey();
+  label.textContent = `Música do 1° do ranking do dia ${formatDateKeyBR(dateKey)}`;
+
+  const requestText = dailyMusicSelection?.requestText?.trim();
+  if (requestText) {
+    textEl.textContent = `Pedido: ${requestText}`;
+    show(textEl);
+  } else {
+    textEl.textContent = '';
+    hide(textEl);
+  }
 }
 
 function getMatchDateKey(match){
@@ -1003,11 +1183,13 @@ window.updatePredictionDraft = function(matchId){
 window.renderPalpites = function(){
   capturePredictionDraftsFromDOM();
   const list = $('palpites-list');
-  const filter = $('group-filter').value;
-  const matches = allMatches.filter(m => filter === 'all' || m.group === filter);
+  if (!list) return;
+
+  const todayKey = getTodayBrasiliaDateKey();
+  const matches = allMatches.filter(m => getMatchDateKey(m) === todayKey);
 
   if (matches.length === 0) {
-    list.innerHTML = `<div class="empty-state"><span class="big">📭</span>Nenhum jogo cadastrado ainda.<br>Peça ao administrador para adicionar os jogos.</div>`;
+    list.innerHTML = `<div class="empty-state"><span class="big">📅</span>Nenhum jogo cadastrado para hoje.<br>Quando o administrador adicionar jogos com a data de hoje, eles aparecerão aqui.</div>`;
     return;
   }
 
@@ -1074,12 +1256,57 @@ window.renderPalpites = function(){
   }).join('');
 };
 
+window.renderHistorico = function(){
+  const list = $('historico-list');
+  if (!list) return;
+
+  const todayKey = getTodayBrasiliaDateKey();
+  const matches = allMatches
+    .filter(m => myPredictions[m.id] && getMatchDateKey(m) < todayKey)
+    .sort((a,b) => (b.datetime || '').localeCompare(a.datetime || ''));
+
+  if (matches.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="big">📜</span>Você ainda não tem palpites anteriores para exibir.</div>`;
+    return;
+  }
+
+  list.innerHTML = matches.map(m => {
+    const pred = myPredictions[m.id];
+    const flagA = FLAG_BY_NAME[m.teamA] || '🏳️';
+    const flagB = FLAG_BY_NAME[m.teamB] || '🏳️';
+    const isFinal = m.status === 'finalizado';
+    const points = pred ? calcPoints(pred, m) : null;
+    const resultText = isFinal ? `${m.scoreA} x ${m.scoreB}` : 'Aguardando resultado';
+    const pointsHtml = points === null
+      ? `<span class="badge badge-pending">Pendente</span>`
+      : `<span class="badge ${pointsBadgeClass(points)}">+${points} pt${points===1?'':'s'}</span>`;
+
+    return `
+      <div class="history-card">
+        <div class="match-meta">
+          <span class="badge badge-group">Grupo ${m.group}</span>
+          <span>${fmtDateTime(m.datetime)}</span>
+        </div>
+        <div class="today-score-title" style="margin-bottom:4px;">
+          <span>${flagA} ${escapeHtml(m.teamA)}</span>
+          <span style="color:var(--muted);">x</span>
+          <span>${escapeHtml(m.teamB)} ${flagB}</span>
+        </div>
+        <div class="history-score-row">
+          <span>Seu palpite<br><strong>${pred.predA} x ${pred.predB}</strong></span>
+          <span>Resultado<br><strong>${resultText}</strong></span>
+          <span>Pontos<br>${pointsHtml}</span>
+        </div>
+      </div>`;
+  }).join('');
+};
+
 window.saveAllPredictions = async function(){
   capturePredictionDraftsFromDOM();
   setBatchSaveMsg('', '');
 
-  const filter = $('group-filter').value;
-  const matches = allMatches.filter(m => filter === 'all' || m.group === filter);
+  const todayKey = getTodayBrasiliaDateKey();
+  const matches = allMatches.filter(m => getMatchDateKey(m) === todayKey);
   const toSave = [];
   const partials = [];
   const locked = [];
@@ -1185,6 +1412,12 @@ setInterval(() => {
   if (!$('tab-palpites').classList.contains('hidden')) {
     renderPalpites();
   }
+  if (!$('tab-historico').classList.contains('hidden')) {
+    renderHistorico();
+  }
+  if (!$('tab-ranking').classList.contains('hidden')) {
+    renderRanking();
+  }
   if (!$('tab-hoje').classList.contains('hidden')) {
     renderPalpitesHoje();
   }
@@ -1286,10 +1519,8 @@ window.renderPalpitesHoje = async function(){
 };
 
 /* ---------------- Render: Ranking ---------------- */
-async function renderRanking(){
-  const list = $('ranking-list');
-  list.innerHTML = `<div class="empty-state">Calculando ranking...</div>`;
-
+async function buildRanking(options={}){
+  const upToDateKey = options.upToDateKey || null;
   const [usersSnap, predsSnap] = await Promise.all([
     getDocs(collection(db, 'users')),
     getDocs(collection(db, 'predictions'))
@@ -1312,13 +1543,131 @@ async function renderRanking(){
     preds.forEach(p => {
       const m = matchById[p.matchId];
       if (!m) return;
+      if (upToDateKey && getMatchDateKey(m) > upToDateKey) return;
       const pts = calcPoints({predA: p.predA, predB: p.predB}, m);
       if (pts !== null) total += pts;
     });
     return { uid: d.id, nickname: u.nickname || '(sem nome)', photoBase64: u.photoBase64 || '', total };
   });
 
-  ranking.sort((a,b) => b.total - a.total);
+  ranking.sort((a,b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    return a.nickname.localeCompare(b.nickname, 'pt-BR');
+  });
+
+  return ranking;
+}
+
+function renderDailyMusicChoiceBox(dailyLeader, dateKey){
+  const box = $('daily-music-choice-box');
+  if (!box) return;
+  const dateLabel = formatDateKeyBR(dateKey);
+
+  if (!dailyLeader || dailyLeader.total <= 0) {
+    box.innerHTML = `
+      <div class="daily-music-card">
+        <div class="daily-music-title">🎵 Música do 1° do ranking</div>
+        <div class="daily-music-text muted">A escolha da música do dia ${dateLabel} será liberada quando houver pontuação finalizada até essa data.</div>
+      </div>`;
+    return;
+  }
+
+  const savedText = dailyMusicSelection?.requestText?.trim();
+  const savedBy = dailyMusicSelection?.leaderNickname || dailyLeader.nickname;
+
+  if (savedText) {
+    box.innerHTML = `
+      <div class="daily-music-card">
+        <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
+        <div class="daily-music-text">${escapeHtml(savedBy)} escolheu a música para ficar no app:</div>
+        <div class="daily-music-choice">${escapeHtml(savedText)}</div>
+      </div>`;
+    return;
+  }
+
+  const isMyTurn = dailyLeader.uid === currentUser.uid;
+
+  if (isMyTurn) {
+    box.innerHTML = `
+      <div class="daily-music-card">
+        <div class="daily-music-title">👑 Você foi o 1° do ranking do dia ${dateLabel}!</div>
+        <div class="daily-music-text">Escreva abaixo qual música você quer deixar no app durante o dia dos novos jogos.</div>
+        <label for="daily-music-request">Música escolhida</label>
+        <textarea id="daily-music-request" maxlength="120" placeholder="Ex: CPM 22 - Contagem Regressiva"></textarea>
+        <div style="margin-top:10px;">
+          <button class="btn btn-primary" onclick="saveDailyMusicChoice()">Salvar música escolhida</button>
+        </div>
+        <div id="daily-music-msg" class="daily-music-msg"></div>
+      </div>`;
+  } else {
+    box.innerHTML = `
+      <div class="daily-music-card">
+        <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
+        <div class="daily-music-text muted">Aguardando ${escapeHtml(dailyLeader.nickname)} escolher a música do app.</div>
+      </div>`;
+  }
+}
+
+window.saveDailyMusicChoice = async function(){
+  const textarea = $('daily-music-request');
+  const msg = $('daily-music-msg');
+  const requestText = textarea?.value.trim();
+  const dateKey = dailyMusicDateKey || getYesterdayBrasiliaDateKey();
+
+  if (!requestText) {
+    if (msg) {
+      msg.textContent = 'Informe o nome da música antes de salvar.';
+      msg.className = 'daily-music-msg err';
+    }
+    return;
+  }
+
+  try {
+    const ranking = await buildRanking({ upToDateKey: dateKey });
+    const dailyLeader = ranking[0];
+    if (!dailyLeader || dailyLeader.uid !== currentUser.uid) {
+      if (msg) {
+        msg.textContent = 'Apenas o 1° do ranking do dia anterior pode escolher a música.';
+        msg.className = 'daily-music-msg err';
+      }
+      return;
+    }
+
+    await setDoc(doc(db, 'musicSelections', dateKey), {
+      dateKey,
+      dateLabel: formatDateKeyBR(dateKey),
+      leaderUid: currentUser.uid,
+      leaderNickname: userProfile.nickname || currentUser.email || dailyLeader.nickname,
+      requestText,
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp()
+    }, { merge: true });
+
+    if (msg) {
+      msg.textContent = 'Música salva! Agora todos poderão ver sua escolha.';
+      msg.className = 'daily-music-msg ok';
+    }
+  } catch (e) {
+    console.error(e);
+    if (msg) {
+      msg.textContent = 'Não foi possível salvar. Verifique as permissões do Firestore.';
+      msg.className = 'daily-music-msg err';
+    }
+  }
+};
+
+async function renderRanking(){
+  const list = $('ranking-list');
+  const musicBox = $('daily-music-choice-box');
+  if (list) list.innerHTML = `<div class="empty-state">Calculando ranking...</div>`;
+  if (musicBox) musicBox.innerHTML = '';
+
+  const ranking = await buildRanking();
+  const dateKey = dailyMusicDateKey || getYesterdayBrasiliaDateKey();
+  const dailyRanking = await buildRanking({ upToDateKey: dateKey });
+  const dailyLeader = dailyRanking[0] || null;
+
+  renderDailyMusicChoiceBox(dailyLeader, dateKey);
 
   if (ranking.length === 0) {
     list.innerHTML = `<div class="empty-state"><span class="big">🏆</span>Ainda não há participantes.</div>`;
@@ -1328,8 +1677,9 @@ async function renderRanking(){
   list.innerHTML = ranking.map((r, idx) => {
     const pos = idx + 1;
     const isMe = r.uid === currentUser.uid;
+    const championClass = pos === 1 ? 'champion-row' : '';
     return `
-      <div class="ranking-row ${isMe ? 'me' : ''} pos-${pos <= 3 ? pos : 0}">
+      <div class="ranking-row ${isMe ? 'me' : ''} ${championClass} pos-${pos <= 3 ? pos : 0}">
         <div class="ranking-pos">${pos}º</div>
         ${avatarHTML(r.photoBase64, '⚽', '')}
         <div class="ranking-name">${escapeHtml(r.nickname)}${isMe ? '<span class="you-tag">você</span>' : ''}</div>
@@ -1421,20 +1771,43 @@ window.createMatch = async function(){
   }
 };
 
+window.setAdminMatchView = function(view){
+  adminMatchView = view === 'finalized' ? 'finalized' : 'open';
+  renderAdmin();
+};
+
 function renderAdmin(){
   const list = $('admin-matches-list');
-  if (allMatches.length === 0) {
-    list.innerHTML = `<div class="empty-state"><span class="big">🗓️</span>Nenhum jogo cadastrado ainda.</div>`;
+  const title = $('admin-list-title');
+  const openBtn = $('admin-open-tab');
+  const finalizedBtn = $('admin-finalized-tab');
+  if (!list) return;
+
+  const showingFinalized = adminMatchView === 'finalized';
+  if (title) title.textContent = showingFinalized ? 'Jogos finalizados' : 'Jogos em aberto';
+  if (openBtn && finalizedBtn) {
+    openBtn.className = showingFinalized ? 'btn btn-ghost btn-sm' : 'btn btn-primary btn-sm';
+    finalizedBtn.className = showingFinalized ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  }
+
+  const visibleMatches = allMatches.filter(m => showingFinalized ? m.status === 'finalizado' : m.status !== 'finalizado');
+
+  if (visibleMatches.length === 0) {
+    list.innerHTML = showingFinalized
+      ? `<div class="empty-state"><span class="big">✅</span>Nenhum jogo finalizado ainda.</div>`
+      : `<div class="empty-state"><span class="big">🗓️</span>Nenhum jogo em aberto no momento.</div>`;
     return;
   }
-  list.innerHTML = allMatches.map(m => {
+
+  list.innerHTML = visibleMatches.map(m => {
     const flagA = FLAG_BY_NAME[m.teamA] || '🏳️';
     const flagB = FLAG_BY_NAME[m.teamB] || '🏳️';
+    const isFinal = m.status === 'finalizado';
     return `
       <div class="admin-match-row">
         <div class="admin-match-top">
           <span>Grupo ${m.group} · ${fmtDateTime(m.datetime)}</span>
-          <span>${m.status === 'finalizado' ? '✅ Finalizado' : '⏳ Em aberto'}</span>
+          <span>${isFinal ? '✅ Finalizado' : '⏳ Em aberto'}</span>
         </div>
         <div class="admin-match-teams">
           <span>${flagA} ${m.teamA}</span><span style="color:var(--muted);">x</span><span>${flagB} ${m.teamB}</span>
@@ -1445,7 +1818,7 @@ function renderAdmin(){
           <input type="number" min="0" max="20" id="admin-score-b-${m.id}" value="${m.scoreB ?? ''}">
         </div>
         <div class="admin-actions">
-          <button class="btn btn-primary btn-sm" onclick="finalizeMatch('${m.id}')">Salvar resultado</button>
+          <button class="btn btn-primary btn-sm" onclick="finalizeMatch('${m.id}')">${isFinal ? 'Atualizar resultado' : 'Salvar resultado'}</button>
           <button class="btn btn-danger btn-sm" onclick="deleteMatch('${m.id}')">Excluir</button>
         </div>
       </div>`;
