@@ -1070,14 +1070,14 @@ function updateTopbarMusicChoice(){
   const dateKey = dailyMusicDateKey || getYesterdayBrasiliaDateKey();
   label.textContent = `Música do 1° do ranking do dia ${formatDateKeyBR(dateKey)}`;
 
-  const requestText = dailyMusicSelection?.requestText?.trim();
-  if (requestText) {
-    textEl.textContent = `Pedido: ${requestText}`;
-    show(textEl);
-  } else {
-    textEl.textContent = '';
-    hide(textEl);
-  }
+  // const requestText = dailyMusicSelection?.requestText?.trim();
+  // if (requestText) {
+  //   textEl.textContent = `Pedido: ${requestText}`;
+  //   show(textEl);
+  // } else {
+  //   textEl.textContent = '';
+  //   hide(textEl);
+  // }
 }
 
 function getMatchDateKey(match){
@@ -1579,7 +1579,7 @@ function renderDailyMusicChoiceBox(dailyLeader, dateKey){
     box.innerHTML = `
       <div class="daily-music-card">
         <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
-        <div class="daily-music-text">${escapeHtml(savedBy)} escolheu a música para ficar no app:</div>
+        <div class="daily-music-text">${escapeHtml(savedBy)} escolheu:</div>
         <div class="daily-music-choice">${escapeHtml(savedText)}</div>
       </div>`;
     return;
@@ -1593,7 +1593,7 @@ function renderDailyMusicChoiceBox(dailyLeader, dateKey){
         <div class="daily-music-title">👑 Você foi o 1° do ranking do dia ${dateLabel}!</div>
         <div class="daily-music-text">Escreva abaixo qual música você quer deixar no app durante o dia dos novos jogos.</div>
         <label for="daily-music-request">Música escolhida</label>
-        <textarea id="daily-music-request" maxlength="120" placeholder="Ex: CPM 22 - Contagem Regressiva"></textarea>
+        <textarea id="daily-music-request" maxlength="120" placeholder="Ex: Tiririca - Florentina"></textarea>
         <div style="margin-top:10px;">
           <button class="btn btn-primary" onclick="saveDailyMusicChoice()">Salvar música escolhida</button>
         </div>
