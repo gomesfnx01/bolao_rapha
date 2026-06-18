@@ -201,8 +201,31 @@
     cursor:pointer;padding:6px 5px;border-radius:10px;
     text-transform:uppercase;letter-spacing:.3px;
   }
+  .bottom-nav button{position:relative;}
   .bottom-nav button .ico{font-size:20px;line-height:1;}
   .bottom-nav button.active{color:var(--amber);}
+  .chat-unread-badge{
+    position:absolute;
+    top:2px;
+    right:7px;
+    min-width:17px;
+    height:17px;
+    padding:0 5px;
+    border-radius:999px;
+    background:var(--red);
+    color:#fff;
+    border:2px solid var(--pitch);
+    font-size:10px;
+    font-weight:900;
+    line-height:13px;
+    text-align:center;
+    box-shadow:0 0 0 2px rgba(255,197,61,.35);
+    animation:chatBadgePulse 1.2s ease-in-out infinite;
+  }
+  @keyframes chatBadgePulse{
+    0%,100%{transform:scale(1);}
+    50%{transform:scale(1.12);}
+  }
 
   /* ---------- Section headers ---------- */
   .section-title{
@@ -913,6 +936,7 @@
       </button>
       <button data-tab="chat" onclick="switchTab('chat')">
         <span class="ico">💬</span>Chat
+        <span id="chat-unread-badge" class="chat-unread-badge hidden">0</span>
       </button>
       <button data-tab="perfil" onclick="switchTab('perfil')">
         <span class="ico">👤</span>Perfil
@@ -992,6 +1016,7 @@ let predictionDrafts = {};     // matchId -> {predA, predB} temporário enquanto
 let dailyMusicSelection = null; // escolha de música do 1º do ranking do dia anterior
 let dailyMusicDateKey = '';
 let chatMessages = [];
+let chatUnreadCount = 0;
 let adminMatchView = 'open';
 let winnerMusicNoticeShownForKey = '';
 let winnerMusicNoticeChecking = false;
@@ -1135,7 +1160,10 @@ window.switchTab = function(tabName){
   if (tabName === 'historico') renderHistorico();
   if (tabName === 'ranking') renderRanking();
   if (tabName === 'hoje') renderPalpitesHoje();
-  if (tabName === 'chat') renderChat();
+  if (tabName === 'chat') {
+    renderChat();
+    markChatAsRead();
+  }
   if (tabName === 'perfil') renderPerfil();
   if (tabName === 'admin') renderAdmin();
 };
@@ -1803,7 +1831,12 @@ function subscribeChatMessages(){
       .map(d => ({ id: d.id, ...d.data() }))
       .reverse();
 
-    if (!$('tab-chat')?.classList.contains('hidden')) renderChat();
+    if (!$('tab-chat')?.classList.contains('hidden')) {
+      renderChat();
+      markChatAsRead();
+    } else {
+      updateChatUnreadBadge();
+    }
   }, err => {
     console.error('Erro ao carregar chat:', err);
     const list = $('chat-list');
@@ -1827,6 +1860,61 @@ function fmtChatTime(value){
   }).format(d);
 }
 
+function chatReadStorageKey(){
+  return currentUser?.uid ? `bolao_chat_last_read_${currentUser.uid}` : 'bolao_chat_last_read';
+}
+
+function getChatMessageMillis(message){
+  const value = message?.createdAt;
+  if (value?.toMillis) return value.toMillis();
+  if (value?.toDate) return value.toDate().getTime();
+  if (value) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+  return 0;
+}
+
+function getLastChatReadMillis(){
+  const stored = Number(localStorage.getItem(chatReadStorageKey()) || 0);
+  return Number.isFinite(stored) ? stored : 0;
+}
+
+function markChatAsRead(){
+  if (!currentUser) return;
+  const latestMessageTime = chatMessages.reduce((max, message) => Math.max(max, getChatMessageMillis(message)), 0);
+  const readUntil = Math.max(Date.now(), latestMessageTime);
+  localStorage.setItem(chatReadStorageKey(), String(readUntil));
+  updateChatUnreadBadge();
+}
+
+function updateChatUnreadBadge(){
+  const badge = $('chat-unread-badge');
+  if (!badge) return;
+
+  const chatIsOpen = !$('tab-chat')?.classList.contains('hidden');
+  if (chatIsOpen) {
+    chatUnreadCount = 0;
+    badge.textContent = '0';
+    hide(badge);
+    return;
+  }
+
+  const lastRead = getLastChatReadMillis();
+  chatUnreadCount = (chatMessages || []).filter(message => {
+    if (!message || message.uid === currentUser?.uid) return false;
+    return getChatMessageMillis(message) > lastRead;
+  }).length;
+
+  if (chatUnreadCount > 0) {
+    badge.textContent = chatUnreadCount > 99 ? '99+' : String(chatUnreadCount);
+    show(badge);
+  } else {
+    badge.textContent = '0';
+    hide(badge);
+  }
+}
+
 function setChatMsg(text, type=''){
   const el = $('chat-msg');
   if (!el) return;
@@ -1839,7 +1927,7 @@ window.renderChat = function(){
   if (!list) return;
 
   if (!chatMessages || chatMessages.length === 0) {
-    list.innerHTML = `<div class="empty-state"><span class="big">💬</span>Nenhum comentário ainda.<br>Seja o primeiro a comentar no bolão.</div>`;
+    list.innerHTML = `<div class="empty-state"><span class="big">💬</span>Nenhum comentário ainda.<br>Seja o primeiro a zoar no bolão.</div>`;
     return;
   }
 
@@ -1901,6 +1989,7 @@ window.sendChatMessage = async function(){
 
     input.value = '';
     setChatMsg('Comentário enviado!', 'ok');
+    markChatAsRead();
   } catch (e) {
     console.error(e);
     setChatMsg('Não foi possível enviar. Verifique as permissões do Firestore.', 'err');
