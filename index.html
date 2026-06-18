@@ -765,7 +765,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs,
-  query, orderBy, onSnapshot, serverTimestamp, deleteDoc, Timestamp
+  query, orderBy, onSnapshot, serverTimestamp, deleteDoc, Timestamp,
+  runTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // >>>>>>>>>>>>>>>>>>>> PREENCHA COM A CONFIG DO SEU FIREBASE <<<<<<<<<<<<<<<<<<<<
@@ -1136,13 +1137,13 @@ function updateTopbarMusicChoice(){
   const dateKey = dailyMusicDateKey || getLatestCompletedMatchDayKey();
 
   if (!dateKey) {
-    label.textContent = 'Música 1° do ranking 17/06';
-    // textEl.textContent = 'Aguardando fechamento dos jogos do dia';
+    label.textContent = 'Música 1° Ranking 17/06';
+    textEl.textContent = 'Aguardando fechamento dos jogos do dia';
     show(textEl);
     return;
   }
 
-  label.textContent = `Música 1° do ranking |${formatDateKeyBR(dateKey)}|`;
+  label.textContent = `Música 1° ranking do dia ${formatDateKeyBR(dateKey)}`;
 
   const requestText = dailyMusicSelection?.requestText?.trim();
   if (requestText) {
@@ -1632,7 +1633,14 @@ async function buildRanking(options={}){
   return ranking;
 }
 
-function renderDailyMusicChoiceBox(dailyLeader, dateKey){
+function getTopRankedUsers(ranking){
+  if (!ranking || ranking.length === 0) return [];
+  const topTotal = Number(ranking[0].total || 0);
+  if (topTotal <= 0) return [];
+  return ranking.filter(user => Number(user.total || 0) === topTotal);
+}
+
+function renderDailyMusicChoiceBox(topLeaders, dateKey){
   const box = $('daily-music-choice-box');
   if (!box) return;
 
@@ -1656,7 +1664,9 @@ function renderDailyMusicChoiceBox(dailyLeader, dateKey){
     return;
   }
 
-  if (!dailyLeader || dailyLeader.total <= 0) {
+  const leaders = Array.isArray(topLeaders) ? topLeaders : [];
+
+  if (leaders.length === 0) {
     box.innerHTML = `
       <div class="daily-music-card">
         <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
@@ -1666,27 +1676,33 @@ function renderDailyMusicChoiceBox(dailyLeader, dateKey){
   }
 
   const savedText = dailyMusicSelection?.requestText?.trim();
-  const savedBy = dailyMusicSelection?.leaderNickname || dailyLeader.nickname;
+  const savedBy = dailyMusicSelection?.leaderNickname || '1° colocado';
 
   if (savedText) {
     box.innerHTML = `
       <div class="daily-music-card">
         <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
-        <div class="daily-music-text">${escapeHtml(savedBy)} escolheu:</div>
+        <div class="daily-music-text">${escapeHtml(savedBy)} escolheu primeiro:</div>
         <div class="daily-music-choice">${escapeHtml(savedText)}</div>
       </div>`;
     return;
   }
 
-  const isMyTurn = dailyLeader.uid === currentUser.uid;
+  const isMyTurn = leaders.some(leader => leader.uid === currentUser.uid);
+  const isTie = leaders.length > 1;
+  const leaderNames = leaders.map(leader => escapeHtml(leader.nickname)).join(', ');
 
   if (isMyTurn) {
     box.innerHTML = `
       <div class="daily-music-card">
-        <div class="daily-music-title">👑 Você foi o 1° do ranking do dia ${dateLabel}!</div>
-        <div class="daily-music-text">Todos os jogos do dia ${dateLabel} já foram finalizados pelo administrador. Escreva abaixo qual música você quer deixar no app.</div>
+        <div class="daily-music-title">${isTie ? '⚡ Empate no 1° lugar!' : '👑 Você foi o 1° do ranking do dia ' + dateLabel + '!'}</div>
+        <div class="daily-music-text">
+          ${isTie
+            ? `Você está empatado em 1° no dia ${dateLabel}. Quem salvar a música primeiro vence. Empatados: ${leaderNames}.`
+            : `Todos os jogos do dia ${dateLabel} já foram finalizados pelo administrador. Escreva abaixo qual música você quer deixar no app.`}
+        </div>
         <label for="daily-music-request">Música escolhida</label>
-        <textarea id="daily-music-request" maxlength="120" placeholder="Ex: Tiririca - Florentina"></textarea>
+        <textarea id="daily-music-request" maxlength="120" placeholder="Ex: CPM 22 - Contagem Regressiva"></textarea>
         <div style="margin-top:10px;">
           <button class="btn btn-primary" onclick="saveDailyMusicChoice()">Salvar música escolhida</button>
         </div>
@@ -1696,7 +1712,11 @@ function renderDailyMusicChoiceBox(dailyLeader, dateKey){
     box.innerHTML = `
       <div class="daily-music-card">
         <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
-        <div class="daily-music-text muted">Todos os jogos do dia ${dateLabel} foram finalizados. Aguardando ${escapeHtml(dailyLeader.nickname)} escolher a música do app.</div>
+        <div class="daily-music-text muted">
+          ${isTie
+            ? `Houve empate no 1° lugar entre: ${leaderNames}. Quem salvar primeiro escolhe a música do app.`
+            : `Todos os jogos do dia ${dateLabel} foram finalizados. Aguardando ${leaderNames} escolher a música do app.`}
+        </div>
       </div>`;
   }
 }
@@ -1733,33 +1753,49 @@ window.saveDailyMusicChoice = async function(){
 
   try {
     const ranking = await buildRanking({ upToDateKey: dateKey });
-    const dailyLeader = ranking[0];
-    if (!dailyLeader || dailyLeader.uid !== currentUser.uid) {
+    const topLeaders = getTopRankedUsers(ranking);
+    const currentUserIsTopLeader = topLeaders.some(leader => leader.uid === currentUser.uid);
+
+    if (!currentUserIsTopLeader) {
       if (msg) {
-        msg.textContent = 'Apenas o 1° do ranking após o fechamento dos jogos do dia pode escolher a música.';
+        msg.textContent = 'Apenas quem está empatado em 1° lugar após o fechamento dos jogos do dia pode disputar a escolha da música.';
         msg.className = 'daily-music-msg err';
       }
       return;
     }
 
-    await setDoc(doc(db, 'musicSelections', dateKey), {
-      dateKey,
-      dateLabel: formatDateKeyBR(dateKey),
-      leaderUid: currentUser.uid,
-      leaderNickname: userProfile.nickname || currentUser.email || dailyLeader.nickname,
-      requestText,
-      updatedAt: serverTimestamp(),
-      createdAt: serverTimestamp()
-    }, { merge: true });
+    const selectionRef = doc(db, 'musicSelections', dateKey);
+
+    await runTransaction(db, async (transaction) => {
+      const selectionSnap = await transaction.get(selectionRef);
+
+      if (selectionSnap.exists()) {
+        throw new Error('MUSIC_ALREADY_CHOSEN');
+      }
+
+      transaction.set(selectionRef, {
+        dateKey,
+        dateLabel: formatDateKeyBR(dateKey),
+        leaderUid: currentUser.uid,
+        leaderNickname: userProfile.nickname || currentUser.email || '(sem nome)',
+        requestText,
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp()
+      });
+    });
 
     if (msg) {
-      msg.textContent = 'Música salva! Agora todos poderão ver sua escolha.';
+      msg.textContent = 'Música salva! Você foi o primeiro entre os líderes empatados.';
       msg.className = 'daily-music-msg ok';
     }
   } catch (e) {
     console.error(e);
     if (msg) {
-      msg.textContent = 'Não foi possível salvar. Verifique as permissões do Firestore.';
+      if (e.message === 'MUSIC_ALREADY_CHOSEN') {
+        msg.textContent = 'Alguém salvou primeiro. Atualize o ranking para ver a música escolhida.';
+      } else {
+        msg.textContent = 'Não foi possível salvar. Verifique as permissões do Firestore.';
+      }
       msg.className = 'daily-music-msg err';
     }
   }
@@ -1774,27 +1810,31 @@ async function renderRanking(){
   const ranking = await buildRanking();
 
   const dateKey = dailyMusicDateKey || getLatestCompletedMatchDayKey();
-  let dailyLeader = null;
+  let topLeaders = [];
 
   if (dateKey && isMatchDayComplete(dateKey)) {
     const dailyRanking = await buildRanking({ upToDateKey: dateKey });
-    dailyLeader = dailyRanking[0] || null;
+    topLeaders = getTopRankedUsers(dailyRanking);
   }
 
-  renderDailyMusicChoiceBox(dailyLeader, dateKey);
+  renderDailyMusicChoiceBox(topLeaders, dateKey);
 
   if (ranking.length === 0) {
     list.innerHTML = `<div class="empty-state"><span class="big">🏆</span>Ainda não há participantes.</div>`;
     return;
   }
 
+  const topTotal = ranking[0]?.total || 0;
+
   list.innerHTML = ranking.map((r, idx) => {
     const pos = idx + 1;
     const isMe = r.uid === currentUser.uid;
-    const championClass = pos === 1 ? 'champion-row' : '';
+    const isTiedTopLeader = topTotal > 0 && r.total === topTotal;
+    const championClass = isTiedTopLeader ? 'champion-row' : '';
+    const displayPos = isTiedTopLeader ? '1º' : `${pos}º`;
     return `
       <div class="ranking-row ${isMe ? 'me' : ''} ${championClass} pos-${pos <= 3 ? pos : 0}">
-        <div class="ranking-pos">${pos}º</div>
+        <div class="ranking-pos">${displayPos}</div>
         ${avatarHTML(r.photoBase64, '⚽', '')}
         <div class="ranking-name">${escapeHtml(r.nickname)}${isMe ? '<span class="you-tag">você</span>' : ''}</div>
         <div class="ranking-pts">${r.total}<span>pts</span></div>
@@ -1962,7 +2002,7 @@ window.deleteMatch = async function(matchId){
    Depois altere abaixo o nome, artista e caminho se quiser.
    ================================================================ */
 const LOCAL_MUSIC = {
-  title: 'Fading out',
+  title: 'Fading Out',
   artist: 'MUTE',
   src: './audio/fading.mp3'
 };
