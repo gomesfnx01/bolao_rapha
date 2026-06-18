@@ -601,6 +601,7 @@
       <div class="topbar-content-row">
         <div class="topbar-sub-group">
           <div class="sub" id="topbar-sub">Fase de grupos</div>
+          <div class="sub" id="music-choice-label">Música do 1° do ranking</div>
           <div class="sub music-choice-sub hidden" id="music-choice-text"></div>
         </div>
         <div id="music-player-mini" aria-label="Player MP3 local">
@@ -973,7 +974,7 @@ function subscribeMatches(){
   unsubMatches = onSnapshot(q, snap => {
     allMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPalpites();
-    updateTopbarMusicChoice();
+    refreshDailyMusicSubscription();
     if (!$('tab-historico').classList.contains('hidden')) renderHistorico();
     if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
     if (!$('tab-hoje').classList.contains('hidden')) renderPalpitesHoje();
@@ -999,8 +1000,35 @@ function subscribeMyPredictions(){
 }
 
 function subscribeDailyMusicSelection(){
+  refreshDailyMusicSubscription();
+}
+
+function refreshDailyMusicSubscription(){
+  const nextDateKey = getLatestCompletedMatchDayKey();
+
+  // Se ainda não existe nenhum dia com todos os jogos finalizados,
+  // não há documento de música para acompanhar.
+  if (!nextDateKey) {
+    if (unsubDailyMusic) {
+      unsubDailyMusic();
+      unsubDailyMusic = null;
+    }
+    dailyMusicDateKey = '';
+    dailyMusicSelection = null;
+    updateTopbarMusicChoice();
+    if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
+    return;
+  }
+
+  // Evita recriar o listener sem necessidade.
+  if (dailyMusicDateKey === nextDateKey && unsubDailyMusic) {
+    updateTopbarMusicChoice();
+    return;
+  }
+
   if (unsubDailyMusic) unsubDailyMusic();
-  dailyMusicDateKey = getYesterdayBrasiliaDateKey();
+
+  dailyMusicDateKey = nextDateKey;
   dailyMusicSelection = null;
   updateTopbarMusicChoice();
 
@@ -1056,6 +1084,44 @@ function getYesterdayBrasiliaDateKey(){
   return getBrasiliaDateKeyByOffset(-1);
 }
 
+function isMatchFinalized(match){
+  return match
+    && match.status === 'finalizado'
+    && match.scoreA !== null
+    && match.scoreA !== undefined
+    && match.scoreB !== null
+    && match.scoreB !== undefined;
+}
+
+function getMatchesByDateKey(){
+  const map = {};
+  allMatches.forEach(match => {
+    const dateKey = getMatchDateKey(match);
+    if (!dateKey) return;
+    if (!map[dateKey]) map[dateKey] = [];
+    map[dateKey].push(match);
+  });
+  return map;
+}
+
+function isMatchDayComplete(dateKey){
+  if (!dateKey) return false;
+  const matches = getMatchesByDateKey()[dateKey] || [];
+  return matches.length > 0 && matches.every(isMatchFinalized);
+}
+
+function getLatestCompletedMatchDayKey(){
+  const todayKey = getTodayBrasiliaDateKey();
+  const matchesByDate = getMatchesByDateKey();
+
+  return Object.keys(matchesByDate)
+    .filter(dateKey => dateKey <= todayKey)
+    .filter(dateKey => matchesByDate[dateKey].length > 0)
+    .filter(dateKey => matchesByDate[dateKey].every(isMatchFinalized))
+    .sort()
+    .pop() || '';
+}
+
 function formatDateKeyBR(dateKey){
   if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return '';
   const [yyyy, mm, dd] = dateKey.split('-');
@@ -1066,17 +1132,26 @@ function updateTopbarMusicChoice(){
   const label = $('music-choice-label');
   const textEl = $('music-choice-text');
   if (!label || !textEl) return;
-  const dateKey = dailyMusicDateKey || getYesterdayBrasiliaDateKey();
-  label.textContent = `Música do 1° do ranking do dia ${formatDateKeyBR(dateKey)}`;
 
-  // const requestText = dailyMusicSelection?.requestText?.trim();
-  // if (requestText) {
-  //   textEl.textContent = `Pedido: ${requestText}`;
-  //   show(textEl);
-  // } else {
-  //   textEl.textContent = '';
-  //   hide(textEl);
-  // }
+  const dateKey = dailyMusicDateKey || getLatestCompletedMatchDayKey();
+
+  if (!dateKey) {
+    label.textContent = 'Música do 1° do ranking';
+    textEl.textContent = 'Aguardando fechamento dos jogos do dia';
+    show(textEl);
+    return;
+  }
+
+  label.textContent = `Música 1° do ranking |${formatDateKeyBR(dateKey)}|`;
+
+  const requestText = dailyMusicSelection?.requestText?.trim();
+  if (requestText) {
+    textEl.textContent = `Pedido: ${requestText}`;
+    show(textEl);
+  } else {
+    textEl.textContent = 'Aguardando escolha da música';
+    show(textEl);
+  }
 }
 
 function getMatchDateKey(match){
@@ -1560,13 +1635,32 @@ async function buildRanking(options={}){
 function renderDailyMusicChoiceBox(dailyLeader, dateKey){
   const box = $('daily-music-choice-box');
   if (!box) return;
+
+  if (!dateKey) {
+    box.innerHTML = `
+      <div class="daily-music-card">
+        <div class="daily-music-title">🎵 Música do 1° do ranking</div>
+        <div class="daily-music-text muted">A escolha da música será liberada automaticamente depois que o administrador finalizar todos os jogos que começaram em um mesmo dia.</div>
+      </div>`;
+    return;
+  }
+
   const dateLabel = formatDateKeyBR(dateKey);
+
+  if (!isMatchDayComplete(dateKey)) {
+    box.innerHTML = `
+      <div class="daily-music-card">
+        <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
+        <div class="daily-music-text muted">Aguardando o administrador finalizar todos os jogos que começaram no dia ${dateLabel}. Depois disso, o 1° colocado poderá escolher a música.</div>
+      </div>`;
+    return;
+  }
 
   if (!dailyLeader || dailyLeader.total <= 0) {
     box.innerHTML = `
       <div class="daily-music-card">
-        <div class="daily-music-title">🎵 Música do 1° do ranking</div>
-        <div class="daily-music-text muted">A escolha da música do dia ${dateLabel} será liberada quando houver pontuação finalizada até essa data.</div>
+        <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
+        <div class="daily-music-text muted">Todos os jogos do dia ${dateLabel} foram finalizados, mas ainda não há pontuação suficiente para liberar uma escolha de música.</div>
       </div>`;
     return;
   }
@@ -1590,7 +1684,7 @@ function renderDailyMusicChoiceBox(dailyLeader, dateKey){
     box.innerHTML = `
       <div class="daily-music-card">
         <div class="daily-music-title">👑 Você foi o 1° do ranking do dia ${dateLabel}!</div>
-        <div class="daily-music-text">Escreva abaixo qual música você quer deixar no app durante o dia dos novos jogos.</div>
+        <div class="daily-music-text">Todos os jogos do dia ${dateLabel} já foram finalizados pelo administrador. Escreva abaixo qual música você quer deixar no app.</div>
         <label for="daily-music-request">Música escolhida</label>
         <textarea id="daily-music-request" maxlength="120" placeholder="Ex: Tiririca - Florentina"></textarea>
         <div style="margin-top:10px;">
@@ -1602,7 +1696,7 @@ function renderDailyMusicChoiceBox(dailyLeader, dateKey){
     box.innerHTML = `
       <div class="daily-music-card">
         <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
-        <div class="daily-music-text muted">Aguardando ${escapeHtml(dailyLeader.nickname)} escolher a música do app.</div>
+        <div class="daily-music-text muted">Todos os jogos do dia ${dateLabel} foram finalizados. Aguardando ${escapeHtml(dailyLeader.nickname)} escolher a música do app.</div>
       </div>`;
   }
 }
@@ -1611,7 +1705,23 @@ window.saveDailyMusicChoice = async function(){
   const textarea = $('daily-music-request');
   const msg = $('daily-music-msg');
   const requestText = textarea?.value.trim();
-  const dateKey = dailyMusicDateKey || getYesterdayBrasiliaDateKey();
+  const dateKey = dailyMusicDateKey || getLatestCompletedMatchDayKey();
+
+  if (!dateKey) {
+    if (msg) {
+      msg.textContent = 'A escolha só será liberada após o admin finalizar todos os jogos de um dia.';
+      msg.className = 'daily-music-msg err';
+    }
+    return;
+  }
+
+  if (!isMatchDayComplete(dateKey)) {
+    if (msg) {
+      msg.textContent = 'Ainda falta finalizar algum jogo desse dia.';
+      msg.className = 'daily-music-msg err';
+    }
+    return;
+  }
 
   if (!requestText) {
     if (msg) {
@@ -1626,7 +1736,7 @@ window.saveDailyMusicChoice = async function(){
     const dailyLeader = ranking[0];
     if (!dailyLeader || dailyLeader.uid !== currentUser.uid) {
       if (msg) {
-        msg.textContent = 'Apenas o 1° do ranking do dia anterior pode escolher a música.';
+        msg.textContent = 'Apenas o 1° do ranking após o fechamento dos jogos do dia pode escolher a música.';
         msg.className = 'daily-music-msg err';
       }
       return;
@@ -1662,9 +1772,14 @@ async function renderRanking(){
   if (musicBox) musicBox.innerHTML = '';
 
   const ranking = await buildRanking();
-  const dateKey = dailyMusicDateKey || getYesterdayBrasiliaDateKey();
-  const dailyRanking = await buildRanking({ upToDateKey: dateKey });
-  const dailyLeader = dailyRanking[0] || null;
+
+  const dateKey = dailyMusicDateKey || getLatestCompletedMatchDayKey();
+  let dailyLeader = null;
+
+  if (dateKey && isMatchDayComplete(dateKey)) {
+    const dailyRanking = await buildRanking({ upToDateKey: dateKey });
+    dailyLeader = dailyRanking[0] || null;
+  }
 
   renderDailyMusicChoiceBox(dailyLeader, dateKey);
 
@@ -1847,9 +1962,9 @@ window.deleteMatch = async function(matchId){
    Depois altere abaixo o nome, artista e caminho se quiser.
    ================================================================ */
 const LOCAL_MUSIC = {
-  title: 'Contagem Regressiva',
-  artist: 'CPM22',
-  src: './audio/contagem.mp3'
+  title: 'Fading out',
+  artist: 'MUTE',
+  src: './audio/fading.mp3'
 };
 
 let localMusicAudio = null;
