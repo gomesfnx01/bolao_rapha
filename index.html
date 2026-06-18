@@ -196,9 +196,9 @@
   }
   .bottom-nav button{
     background:none;border:none;color:#9FCBB4;
-    font-family:'Inter',sans-serif;font-size:11px;font-weight:700;
+    font-family:'Inter',sans-serif;font-size:10px;font-weight:700;
     display:flex;flex-direction:column;align-items:center;gap:3px;
-    cursor:pointer;padding:6px 8px;border-radius:10px;
+    cursor:pointer;padding:6px 5px;border-radius:10px;
     text-transform:uppercase;letter-spacing:.3px;
   }
   .bottom-nav button .ico{font-size:20px;line-height:1;}
@@ -448,6 +448,161 @@
   }
   .admin-tab-switch .btn{flex:1;}
 
+
+  /* ---------- Chat ---------- */
+  .chat-box{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px;
+    margin-bottom:12px;
+  }
+  .chat-input-row{display:flex;gap:8px;align-items:flex-end;}
+  .chat-input-row textarea{min-height:58px;max-height:120px;resize:vertical;}
+  .chat-input-row .btn{width:92px;flex-shrink:0;padding:13px 10px;}
+  .chat-msg-status{
+    margin-top:8px;
+    font-size:12px;
+    font-weight:800;
+    text-align:center;
+  }
+  .chat-msg-status.ok{color:var(--green-ok);}
+  .chat-msg-status.err{color:var(--red);}
+  .chat-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .chat-message{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:11px 12px;
+  }
+  .chat-message.mine{
+    border-color:var(--amber);
+    background:#FFFBF0;
+  }
+  .chat-message-head{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    align-items:center;
+    margin-bottom:6px;
+  }
+  .chat-message-name{
+    font-size:12px;
+    font-weight:900;
+    color:var(--pitch);
+    min-width:0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .chat-message-time{
+    font-size:10px;
+    font-weight:800;
+    color:var(--muted);
+    white-space:nowrap;
+  }
+  .chat-message-text{
+    font-size:13px;
+    line-height:1.35;
+    color:var(--ink);
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+
+  /* ---------- Aviso animado do vencedor da música ---------- */
+  .winner-modal{
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:18px;
+    background:rgba(8,41,34,.76);
+    backdrop-filter:blur(3px);
+  }
+  .winner-modal-card{
+    width:100%;
+    max-width:430px;
+    background:#FFF8E6;
+    border:2px solid var(--amber);
+    border-radius:20px;
+    padding:22px 18px 18px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+    animation:winnerPop .38s ease-out both, winnerGlow 1.6s ease-in-out infinite;
+  }
+  .winner-modal-card::before,
+  .winner-modal-card::after{
+    content:'🎉  🏆  🎸  🎵  👑';
+    position:absolute;
+    left:-12px;
+    right:-12px;
+    color:rgba(14,59,46,.22);
+    font-size:24px;
+    letter-spacing:9px;
+    animation:confettiFloat 2.1s ease-in-out infinite;
+    pointer-events:none;
+  }
+  .winner-modal-card::before{top:8px;}
+  .winner-modal-card::after{bottom:8px;animation-delay:.45s;}
+  .winner-modal-emoji{
+    font-size:54px;
+    line-height:1;
+    margin-bottom:8px;
+    animation:crownBounce 1s ease-in-out infinite;
+    position:relative;
+    z-index:1;
+  }
+  .winner-modal-title{
+    font-family:'Anton',sans-serif;
+    font-size:24px;
+    color:var(--pitch);
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    line-height:1.08;
+    position:relative;
+    z-index:1;
+  }
+  .winner-modal-text{
+    margin-top:10px;
+    font-size:14px;
+    font-weight:700;
+    color:var(--ink);
+    line-height:1.35;
+    position:relative;
+    z-index:1;
+  }
+  .winner-modal-actions{
+    display:flex;
+    gap:8px;
+    margin-top:16px;
+    position:relative;
+    z-index:1;
+  }
+  .winner-modal-actions .btn{flex:1;}
+  @keyframes winnerPop{
+    from{opacity:0;transform:translateY(20px) scale(.92);}
+    to{opacity:1;transform:translateY(0) scale(1);}
+  }
+  @keyframes winnerGlow{
+    0%,100%{box-shadow:0 0 0 rgba(255,197,61,0);}
+    50%{box-shadow:0 0 30px rgba(255,197,61,.7);}
+  }
+  @keyframes crownBounce{
+    0%,100%{transform:translateY(0) rotate(-3deg);}
+    50%{transform:translateY(-8px) rotate(4deg);}
+  }
+  @keyframes confettiFloat{
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(8px);}
+  }
+
   /* loading */
   #loading{
     min-height:100vh;display:flex;align-items:center;justify-content:center;
@@ -662,6 +817,22 @@
         <div id="today-predictions-list"></div>
       </section>
 
+      <!-- CHAT -->
+      <section id="tab-chat" class="tab hidden">
+        <div class="section-title">Chat do bolão</div>
+        <div class="section-sub">Deixe seus comentários, zoe com moderação e acompanhe o papo da galera.</div>
+        <div class="chat-box">
+          <label style="margin-top:0;" for="chat-input">Novo comentário</label>
+          <div class="chat-input-row">
+            <textarea id="chat-input" maxlength="280" placeholder="Escreva seu comentário..." onkeydown="handleChatKeydown(event)"></textarea>
+            <button class="btn btn-primary" id="chat-send-btn" onclick="sendChatMessage()">Enviar</button>
+          </div>
+          <div class="batch-save-note">Dica: Ctrl + Enter também envia. Limite de 280 caracteres.</div>
+          <div id="chat-msg" class="chat-msg-status"></div>
+        </div>
+        <div id="chat-list" class="chat-list"></div>
+      </section>
+
       <!-- PERFIL -->
       <section id="tab-perfil" class="tab hidden">
         <div class="section-title">Seu perfil</div>
@@ -740,6 +911,9 @@
       <button data-tab="hoje" onclick="switchTab('hoje')">
         <span class="ico">👀</span>Hoje
       </button>
+      <button data-tab="chat" onclick="switchTab('chat')">
+        <span class="ico">💬</span>Chat
+      </button>
       <button data-tab="perfil" onclick="switchTab('perfil')">
         <span class="ico">👤</span>Perfil
       </button>
@@ -747,6 +921,13 @@
         <span class="ico">🛠️</span>Admin
       </button>
     </nav>
+  </div>
+
+  <!-- AVISO ANIMADO PARA O VENCEDOR/EMPATADO EM 1º ESCOLHER A MÚSICA -->
+  <div id="winner-music-modal" class="winner-modal hidden">
+    <div class="winner-modal-card" id="winner-music-modal-content">
+      <!-- preenchido via JavaScript -->
+    </div>
   </div>
 
 </div>
@@ -766,7 +947,7 @@ import {
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs,
   query, orderBy, onSnapshot, serverTimestamp, deleteDoc, Timestamp,
-  runTransaction
+  runTransaction, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // >>>>>>>>>>>>>>>>>>>> PREENCHA COM A CONFIG DO SEU FIREBASE <<<<<<<<<<<<<<<<<<<<
@@ -810,10 +991,14 @@ let myPredictions = {};        // matchId -> {predA, predB}
 let predictionDrafts = {};     // matchId -> {predA, predB} temporário enquanto o usuário preenche
 let dailyMusicSelection = null; // escolha de música do 1º do ranking do dia anterior
 let dailyMusicDateKey = '';
+let chatMessages = [];
 let adminMatchView = 'open';
+let winnerMusicNoticeShownForKey = '';
+let winnerMusicNoticeChecking = false;
 let unsubMatches = null;
 let unsubMyPreds = null;
 let unsubDailyMusic = null;
+let unsubChatMessages = null;
 let pendingPhotoBase64 = { onboard: null, profile: null };
 
 /* ---------------- Helpers ---------------- */
@@ -920,6 +1105,7 @@ window.doLogout = async function(){
   if (unsubMatches) unsubMatches();
   if (unsubMyPreds) unsubMyPreds();
   if (unsubDailyMusic) unsubDailyMusic();
+  if (unsubChatMessages) unsubChatMessages();
   await signOut(auth);
 };
 
@@ -949,6 +1135,7 @@ window.switchTab = function(tabName){
   if (tabName === 'historico') renderHistorico();
   if (tabName === 'ranking') renderRanking();
   if (tabName === 'hoje') renderPalpitesHoje();
+  if (tabName === 'chat') renderChat();
   if (tabName === 'perfil') renderPerfil();
   if (tabName === 'admin') renderAdmin();
 };
@@ -965,6 +1152,7 @@ function enterApp(){
   subscribeMatches();
   subscribeMyPredictions();
   subscribeDailyMusicSelection();
+  subscribeChatMessages();
   tryAutoStartLocalMusic();
 }
 
@@ -976,6 +1164,7 @@ function subscribeMatches(){
     allMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPalpites();
     refreshDailyMusicSubscription();
+    checkWinnerMusicNotice();
     if (!$('tab-historico').classList.contains('hidden')) renderHistorico();
     if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
     if (!$('tab-hoje').classList.contains('hidden')) renderPalpitesHoje();
@@ -997,6 +1186,7 @@ function subscribeMyPredictions(){
     renderPalpites();
     if (!$('tab-historico').classList.contains('hidden')) renderHistorico();
     if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
+    checkWinnerMusicNotice();
   });
 }
 
@@ -1037,6 +1227,7 @@ function refreshDailyMusicSubscription(){
     dailyMusicSelection = snap.exists() ? snap.data() : null;
     updateTopbarMusicChoice();
     if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
+    checkWinnerMusicNotice();
   }, err => {
     console.warn('Não foi possível acompanhar a escolha de música:', err);
     updateTopbarMusicChoice();
@@ -1496,6 +1687,9 @@ setInterval(() => {
   if (!$('tab-hoje').classList.contains('hidden')) {
     renderPalpitesHoje();
   }
+  if (!$('tab-chat').classList.contains('hidden')) {
+    renderChat();
+  }
 }, 120000);
 
 /* ---------------- Render: Palpites de Hoje ---------------- */
@@ -1590,6 +1784,131 @@ window.renderPalpitesHoje = async function(){
   } catch (e) {
     console.error(e);
     list.innerHTML = `<div class="error-msg">Não foi possível carregar os palpites de hoje. Verifique as permissões do Firestore.</div>`;
+  }
+};
+
+
+/* ---------------- Render: Chat ---------------- */
+function subscribeChatMessages(){
+  if (unsubChatMessages) unsubChatMessages();
+
+  const q = query(
+    collection(db, 'chatMessages'),
+    orderBy('createdAt', 'desc'),
+    limit(60)
+  );
+
+  unsubChatMessages = onSnapshot(q, snap => {
+    chatMessages = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .reverse();
+
+    if (!$('tab-chat')?.classList.contains('hidden')) renderChat();
+  }, err => {
+    console.error('Erro ao carregar chat:', err);
+    const list = $('chat-list');
+    if (list) list.innerHTML = `<div class="error-msg">Não foi possível carregar o chat. Verifique as permissões do Firestore.</div>`;
+  });
+}
+
+function fmtChatTime(value){
+  let d = null;
+  if (value?.toDate) d = value.toDate();
+  else if (value) d = new Date(value);
+
+  if (!d || Number.isNaN(d.getTime())) return 'agora';
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(d);
+}
+
+function setChatMsg(text, type=''){
+  const el = $('chat-msg');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'chat-msg-status' + (type ? ` ${type}` : '');
+}
+
+window.renderChat = function(){
+  const list = $('chat-list');
+  if (!list) return;
+
+  if (!chatMessages || chatMessages.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="big">💬</span>Nenhum comentário ainda.<br>Seja o primeiro a comentar no bolão.</div>`;
+    return;
+  }
+
+  list.innerHTML = chatMessages.map(m => {
+    const isMine = m.uid === currentUser?.uid;
+    return `
+      <div class="chat-message ${isMine ? 'mine' : ''}">
+        <div class="chat-message-head">
+          <div class="chat-message-name">${escapeHtml(m.nickname || '(sem nome)')}${isMine ? ' · você' : ''}</div>
+          <div class="chat-message-time">${fmtChatTime(m.createdAt)}</div>
+        </div>
+        <div class="chat-message-text">${escapeHtml(m.text || '')}</div>
+      </div>`;
+  }).join('');
+
+  setTimeout(() => {
+    if (!$('tab-chat')?.classList.contains('hidden')) {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+  }, 50);
+};
+
+window.handleChatKeydown = function(event){
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault();
+    sendChatMessage();
+  }
+};
+
+window.sendChatMessage = async function(){
+  const input = $('chat-input');
+  const btn = $('chat-send-btn');
+  const text = input?.value.trim() || '';
+
+  setChatMsg('', '');
+
+  if (!text) {
+    setChatMsg('Escreva um comentário antes de enviar.', 'err');
+    return;
+  }
+
+  if (text.length > 280) {
+    setChatMsg('Comentário muito grande. Limite de 280 caracteres.', 'err');
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+  }
+
+  try {
+    await setDoc(doc(collection(db, 'chatMessages')), {
+      uid: currentUser.uid,
+      nickname: userProfile.nickname || currentUser.email || '(sem nome)',
+      text,
+      createdAt: serverTimestamp()
+    });
+
+    input.value = '';
+    setChatMsg('Comentário enviado!', 'ok');
+  } catch (e) {
+    console.error(e);
+    setChatMsg('Não foi possível enviar. Verifique as permissões do Firestore.', 'err');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Enviar';
+    }
   }
 };
 
@@ -1721,6 +2040,76 @@ function renderDailyMusicChoiceBox(topLeaders, dateKey){
   }
 }
 
+
+async function checkWinnerMusicNotice(){
+  if (winnerMusicNoticeChecking || !currentUser || !userProfile) return;
+
+  const dateKey = dailyMusicDateKey || getLatestCompletedMatchDayKey();
+  if (!dateKey || !isMatchDayComplete(dateKey)) return;
+
+  if (dailyMusicSelection?.requestText?.trim()) return;
+
+  const noticeKey = `${currentUser.uid}_${dateKey}`;
+  if (winnerMusicNoticeShownForKey === noticeKey) return;
+
+  winnerMusicNoticeChecking = true;
+
+  try {
+    const ranking = await buildRanking({ upToDateKey: dateKey });
+    const topLeaders = getTopRankedUsers(ranking);
+    const isMyTurn = topLeaders.some(leader => leader.uid === currentUser.uid);
+
+    if (!isMyTurn) return;
+
+    winnerMusicNoticeShownForKey = noticeKey;
+    showWinnerMusicModal(dateKey, topLeaders);
+  } catch (e) {
+    console.warn('Não foi possível verificar o aviso do vencedor da música:', e);
+  } finally {
+    winnerMusicNoticeChecking = false;
+  }
+}
+
+function showWinnerMusicModal(dateKey, topLeaders=[]){
+  const modal = $('winner-music-modal');
+  const content = $('winner-music-modal-content');
+  if (!modal || !content) return;
+
+  const dateLabel = formatDateKeyBR(dateKey);
+  const isTie = topLeaders.length > 1;
+  const leaderNames = topLeaders.map(l => l.nickname).filter(Boolean).join(', ');
+
+  content.innerHTML = `
+    <div class="winner-modal-emoji">👑</div>
+    <div class="winner-modal-title">Você pode escolher a música!</div>
+    <div class="winner-modal-text">
+      ${isTie
+        ? `Você terminou empatado em 1° no ranking do dia ${dateLabel}. Quem salvar primeiro entre os empatados vence a escolha da música.`
+        : `Você ficou em 1° no ranking do dia ${dateLabel}. A escolha da música do app está liberada para você.`}
+    </div>
+    ${isTie ? `<div class="winner-modal-text" style="font-size:12px;color:var(--muted);">Empatados: ${escapeHtml(leaderNames)}</div>` : ''}
+    <div class="winner-modal-actions">
+      <button class="btn btn-primary" onclick="goToMusicChoice()">Escolher agora</button>
+      <button class="btn btn-ghost" onclick="closeWinnerMusicModal()">Depois</button>
+    </div>`;
+
+  show(modal);
+}
+
+window.closeWinnerMusicModal = function(){
+  const modal = $('winner-music-modal');
+  if (modal) hide(modal);
+};
+
+window.goToMusicChoice = function(){
+  closeWinnerMusicModal();
+  switchTab('ranking');
+  setTimeout(() => {
+    const box = $('daily-music-choice-box');
+    if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 120);
+};
+
 window.saveDailyMusicChoice = async function(){
   const textarea = $('daily-music-request');
   const msg = $('daily-music-msg');
@@ -1788,6 +2177,7 @@ window.saveDailyMusicChoice = async function(){
       msg.textContent = 'Música salva! Você foi o primeiro entre os líderes empatados.';
       msg.className = 'daily-music-msg ok';
     }
+    closeWinnerMusicModal();
   } catch (e) {
     console.error(e);
     if (msg) {
