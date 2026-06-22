@@ -326,6 +326,41 @@
   .ranking-name .you-tag{font-size:10px;color:var(--amber);background:var(--pitch);padding:2px 6px;border-radius:5px;margin-left:6px;text-transform:uppercase;}
   .ranking-pts{font-family:'Anton',sans-serif;font-size:20px;color:var(--pitch);}
   .ranking-pts span{font-size:10px;color:var(--muted);font-family:'Inter',sans-serif;font-weight:700;margin-left:2px;}
+  .ranking-move{
+    width:38px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    border-radius:999px;
+    padding:4px 5px;
+    font-size:10px;
+    font-weight:900;
+    line-height:1;
+    background:#F1ECE0;
+    color:var(--muted);
+    border:1px solid rgba(0,0,0,.04);
+  }
+  .ranking-move.move-up{background:#EAF3EE;color:var(--green-ok);}
+  .ranking-move.move-down{background:#FBEAEA;color:var(--red);}
+  .ranking-move.move-same{background:#F1ECE0;color:var(--muted);}
+  .ranking-move .rank-arrow{font-size:10px;line-height:1;}
+  .ranking-movement-info{
+    background:#F7F3E7;
+    border:1px solid var(--line);
+    color:var(--muted);
+    border-radius:10px;
+    padding:8px 10px;
+    font-size:11px;
+    font-weight:800;
+    text-align:center;
+    margin-bottom:10px;
+  }
+  .ranking-row{
+    border-left:5px solid var(--rank-color,var(--line));
+    box-shadow:inset 4px 0 0 var(--rank-color,var(--line));
+  }
 
   .ranking-row.champion-row{
     position:relative;
@@ -2004,6 +2039,7 @@ window.sendChatMessage = async function(){
 /* ---------------- Render: Ranking ---------------- */
 async function buildRanking(options={}){
   const upToDateKey = options.upToDateKey || null;
+  const excludeMatchId = options.excludeMatchId || null;
   const [usersSnap, predsSnap] = await Promise.all([
     getDocs(collection(db, 'users')),
     getDocs(collection(db, 'predictions'))
@@ -2026,6 +2062,7 @@ async function buildRanking(options={}){
     preds.forEach(p => {
       const m = matchById[p.matchId];
       if (!m) return;
+      if (excludeMatchId && p.matchId === excludeMatchId) return;
       if (upToDateKey && getMatchDateKey(m) > upToDateKey) return;
       const pts = calcPoints({predA: p.predA, predB: p.predB}, m);
       if (pts !== null) total += pts;
@@ -2046,6 +2083,66 @@ function getTopRankedUsers(ranking){
   const topTotal = Number(ranking[0].total || 0);
   if (topTotal <= 0) return [];
   return ranking.filter(user => Number(user.total || 0) === topTotal);
+}
+
+function getMatchFinalizedSortValue(match){
+  if (!match) return 0;
+
+  const finalizedAt = match.finalizedAt;
+  if (finalizedAt && typeof finalizedAt.toMillis === 'function') return finalizedAt.toMillis();
+  if (finalizedAt && typeof finalizedAt.seconds === 'number') return finalizedAt.seconds * 1000;
+
+  const kickoff = new Date(match.datetime || '').getTime();
+  return Number.isNaN(kickoff) ? 0 : kickoff;
+}
+
+function getLatestFinalizedMatch(){
+  return allMatches
+    .filter(isMatchFinalized)
+    .slice()
+    .sort((a,b) => getMatchFinalizedSortValue(b) - getMatchFinalizedSortValue(a))
+    [0] || null;
+}
+
+function getRankingPositionMap(ranking){
+  const map = {};
+  (ranking || []).forEach((user, idx) => {
+    map[user.uid] = idx + 1;
+  });
+  return map;
+}
+
+function getRankingMovement(user, previousPositions, currentPos){
+  const previousPos = previousPositions ? previousPositions[user.uid] : null;
+  if (!previousPos) return { type: 'same', diff: 0, title: 'Sem variação' };
+
+  const diff = previousPos - currentPos;
+  if (diff > 0) return { type: 'up', diff, title: `Subiu ${diff} posição${diff === 1 ? '' : 'es'}` };
+  if (diff < 0) return { type: 'down', diff: Math.abs(diff), title: `Desceu ${Math.abs(diff)} posição${Math.abs(diff) === 1 ? '' : 'es'}` };
+  return { type: 'same', diff: 0, title: 'Permaneceu na mesma posição' };
+}
+
+function rankingMoveHTML(move){
+  if (!move || move.type === 'same') {
+    return `<div class="ranking-move move-same" title="Permaneceu na mesma posição"><span>0</span><span class="rank-arrow">▪</span></div>`;
+  }
+
+  if (move.type === 'up') {
+    return `<div class="ranking-move move-up" title="${escapeHtml(move.title)}"><span>${move.diff}</span><span class="rank-arrow">▲</span></div>`;
+  }
+
+  return `<div class="ranking-move move-down" title="${escapeHtml(move.title)}"><span>${move.diff}</span><span class="rank-arrow">▼</span></div>`;
+}
+
+function getRankingBorderColor(pos, total, isChampion=false){
+  if (isChampion) return '#D4A017';
+  if (!total || total <= 1) return '#3E8E5A';
+
+  const ratio = Math.min(1, Math.max(0, (pos - 1) / Math.max(1, total - 1)));
+  const hue = Math.round(130 * (1 - ratio)); // verde no topo, amarelo/laranja no meio e vermelho no final
+  const saturation = Math.round(58 + (ratio * 22));
+  const lightness = Math.round(34 + (ratio * 10));
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
 function renderDailyMusicChoiceBox(topLeaders, dateKey){
@@ -2303,23 +2400,43 @@ async function renderRanking(){
     return;
   }
 
-  const topTotal = ranking[0]?.total || 0;
+  const latestFinalizedMatch = getLatestFinalizedMatch();
+  let movementByUid = {};
 
-  list.innerHTML = ranking.map((r, idx) => {
+  if (latestFinalizedMatch) {
+    const previousRanking = await buildRanking({ excludeMatchId: latestFinalizedMatch.id });
+    const previousPositions = getRankingPositionMap(previousRanking);
+    ranking.forEach((user, idx) => {
+      movementByUid[user.uid] = getRankingMovement(user, previousPositions, idx + 1);
+    });
+  }
+
+  const movementInfo = latestFinalizedMatch
+    ? `<div class="ranking-movement-info">Variação após o último resultado salvo: ${escapeHtml(latestFinalizedMatch.teamA)} x ${escapeHtml(latestFinalizedMatch.teamB)}</div>`
+    : '';
+
+  const topTotal = ranking[0]?.total || 0;
+  const totalUsers = ranking.length;
+
+  list.innerHTML = movementInfo + ranking.map((r, idx) => {
     const pos = idx + 1;
     const isMe = r.uid === currentUser.uid;
     const isTiedTopLeader = topTotal > 0 && r.total === topTotal;
     const championClass = isTiedTopLeader ? 'champion-row' : '';
     const displayPos = isTiedTopLeader ? '1º' : `${pos}º`;
+    const move = movementByUid[r.uid] || { type: 'same', diff: 0, title: 'Sem variação' };
+    const rankColor = getRankingBorderColor(pos, totalUsers, isTiedTopLeader);
     return `
-      <div class="ranking-row ${isMe ? 'me' : ''} ${championClass} pos-${pos <= 3 ? pos : 0}">
+      <div class="ranking-row ${isMe ? 'me' : ''} ${championClass} pos-${pos <= 3 ? pos : 0}" style="--rank-color:${rankColor};border-color:${rankColor};">
         <div class="ranking-pos">${displayPos}</div>
         ${avatarHTML(r.photoBase64, '⚽', '')}
         <div class="ranking-name">${escapeHtml(r.nickname)}${isMe ? '<span class="you-tag">você</span>' : ''}</div>
+        ${rankingMoveHTML(move)}
         <div class="ranking-pts">${r.total}<span>pts</span></div>
       </div>`;
   }).join('');
 }
+
 
 function escapeHtml(str){
   const d = document.createElement('div');
@@ -2466,7 +2583,10 @@ window.finalizeMatch = async function(matchId){
     return;
   }
   await updateDoc(doc(db, 'matches', matchId), {
-    scoreA: Number(a), scoreB: Number(b), status: 'finalizado'
+    scoreA: Number(a),
+    scoreB: Number(b),
+    status: 'finalizado',
+    finalizedAt: serverTimestamp()
   });
 };
 
