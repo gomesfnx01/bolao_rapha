@@ -858,7 +858,7 @@
       <!-- RANKING GERAL -->
       <section id="tab-ranking" class="tab hidden">
         <div class="section-title">Ranking geral</div>
-        <div class="section-sub">Ranking do bolão inteiro.</br> Placar exato = 5 pts</br>vencedor/empate = +2 pts</br> placar de uma equipe = +1 pt.</div>
+        <div class="section-sub">Ranking acumulado do bolão inteiro. Placar exato = 5 pts, vencedor/empate = +2 pts, placar de uma equipe = +1 pt.</div>
         <div id="ranking-list"></div>
       </section>
 
@@ -971,7 +971,7 @@
       <button data-tab="ranking" onclick="switchTab('ranking')">
         <span class="ico">🏆</span>Geral
       </button>
-      <button data-tab="ranking-dia" onclick="switchTab('ranking-dia')">
+      <button data-tab="ranking-dia" onclick="openRankingDiaTab()">
         <span class="ico">🥇</span>Dia
       </button>
       <button data-tab="hoje" onclick="switchTab('hoje')">
@@ -1063,6 +1063,7 @@ let chatUnreadCount = 0;
 let adminMatchView = 'open';
 let winnerMusicNoticeShownForKey = '';
 let winnerMusicNoticeChecking = false;
+let rankingDiaFocusDateKey = ''; // usado quando o vencedor clica em "Escolher agora" para abrir o dia correto da música
 let unsubMatches = null;
 let unsubMyPreds = null;
 let unsubDailyMusic = null;
@@ -1195,6 +1196,11 @@ window.completeOnboarding = async function(){
 };
 
 /* ---------------- Tabs ---------------- */
+window.openRankingDiaTab = function(){
+  rankingDiaFocusDateKey = '';
+  switchTab('ranking-dia');
+};
+
 window.switchTab = function(tabName){
   document.querySelectorAll('.tab').forEach(el => hide(el));
   document.querySelectorAll('.bottom-nav button').forEach(el => el.classList.remove('active'));
@@ -1259,7 +1265,6 @@ function subscribeMyPredictions(){
     renderPalpites();
     if (!$('tab-historico').classList.contains('hidden')) renderHistorico();
     if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
-    if (!$('tab-ranking-dia').classList.contains('hidden')) renderRankingDia();
     checkWinnerMusicNotice();
   });
 }
@@ -1282,7 +1287,6 @@ function refreshDailyMusicSubscription(){
     dailyMusicSelection = null;
     updateTopbarMusicChoice();
     if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
-    if (!$('tab-ranking-dia').classList.contains('hidden')) renderRankingDia();
     return;
   }
 
@@ -1302,7 +1306,6 @@ function refreshDailyMusicSubscription(){
     dailyMusicSelection = snap.exists() ? snap.data() : null;
     updateTopbarMusicChoice();
     if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
-    if (!$('tab-ranking-dia').classList.contains('hidden')) renderRankingDia();
     checkWinnerMusicNotice();
   }, err => {
     console.warn('Não foi possível acompanhar a escolha de música:', err);
@@ -2315,7 +2318,7 @@ function showWinnerMusicModal(dateKey, topLeaders=[]){
     </div>
     ${isTie ? `<div class="winner-modal-text" style="font-size:12px;color:var(--muted);">Empatados: ${escapeHtml(leaderNames)}</div>` : ''}
     <div class="winner-modal-actions">
-      <button class="btn btn-primary" onclick="goToMusicChoice()">Escolher agora</button>
+      <button class="btn btn-primary" onclick="goToMusicChoice('${dateKey}')">Escolher agora</button>
       <button class="btn btn-ghost" onclick="closeWinnerMusicModal()">Depois</button>
     </div>`;
 
@@ -2327,13 +2330,19 @@ window.closeWinnerMusicModal = function(){
   if (modal) hide(modal);
 };
 
-window.goToMusicChoice = function(){
+window.goToMusicChoice = function(dateKey=''){
+  // O aviso pode ser do ranking do dia anterior, enquanto a aba "Dia" normal
+  // já pode estar mostrando os jogos de hoje. Por isso forçamos a aba a abrir
+  // exatamente o dia que liberou a escolha da música.
+  rankingDiaFocusDateKey = dateKey || dailyMusicDateKey || getLatestCompletedMatchDayKey();
   closeWinnerMusicModal();
   switchTab('ranking-dia');
   setTimeout(() => {
     const box = $('daily-music-choice-box');
     if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 120);
+    const textarea = $('daily-music-request');
+    if (textarea) textarea.focus();
+  }, 160);
 };
 
 window.saveDailyMusicChoice = async function(){
@@ -2403,6 +2412,7 @@ window.saveDailyMusicChoice = async function(){
       msg.textContent = 'Música salva! Você foi o primeiro entre os líderes empatados.';
       msg.className = 'daily-music-msg ok';
     }
+    rankingDiaFocusDateKey = '';
     closeWinnerMusicModal();
   } catch (e) {
     console.error(e);
@@ -2472,7 +2482,7 @@ async function renderRankingDia(){
   if (list) list.innerHTML = `<div class="empty-state">Calculando ranking do dia...</div>`;
   if (musicBox) musicBox.innerHTML = '';
 
-  const dateKey = getActiveDailyRankingDateKey();
+  const dateKey = rankingDiaFocusDateKey || getActiveDailyRankingDateKey();
 
   if (!dateKey) {
     renderDailyMusicChoiceBox([], '');
