@@ -549,6 +549,124 @@
   }
 
 
+  /* ---------- Regras do bolão ---------- */
+  .rules-shortcut-row{
+    display:flex;
+    justify-content:flex-start;
+    margin:0 0 14px;
+  }
+  .rules-modal{
+    position:fixed;
+    inset:0;
+    z-index:1100;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:18px;
+    background:rgba(8,41,34,.76);
+    backdrop-filter:blur(3px);
+  }
+  .rules-modal-card{
+    width:100%;
+    max-width:430px;
+    background:#fff;
+    border:2px solid var(--amber);
+    border-radius:18px;
+    padding:18px;
+    box-shadow:0 18px 48px rgba(0,0,0,.35);
+    animation:winnerPop .28s ease-out both;
+  }
+  .rules-modal-title{
+    font-family:'Anton',sans-serif;
+    font-size:22px;
+    color:var(--pitch);
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    margin-bottom:8px;
+  }
+  .rules-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:10px;
+  }
+  .rule-item{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    background:#F7F3E7;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px;
+  }
+  .rule-icon{
+    width:28px;
+    height:28px;
+    border-radius:999px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--pitch);
+    color:var(--amber);
+    font-weight:900;
+    flex-shrink:0;
+  }
+  .rule-text{
+    font-size:13px;
+    line-height:1.35;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .rule-text span{
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+  }
+
+  /* ---------- Resumo do vencedor do dia ---------- */
+  .daily-winner-card{
+    background:linear-gradient(135deg,#FFF8E6 0%,#FFFFFF 68%);
+    border:1.5px solid #E8DDBE;
+    border-radius:14px;
+    padding:14px;
+    margin-bottom:12px;
+  }
+  .daily-winner-card.ready{
+    border-color:var(--amber);
+    box-shadow:0 0 18px rgba(255,197,61,.28);
+  }
+  .daily-winner-title{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:'Anton',sans-serif;
+    font-size:18px;
+    color:var(--pitch);
+    text-transform:uppercase;
+    letter-spacing:.4px;
+  }
+  .daily-winner-body{
+    margin-top:8px;
+    font-size:13px;
+    line-height:1.35;
+    color:var(--ink);
+    font-weight:700;
+  }
+  .daily-winner-body.muted{color:var(--muted);}
+  .daily-winner-music{
+    margin-top:10px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 12px;
+    color:var(--pitch);
+    font-size:13px;
+    font-weight:900;
+    line-height:1.35;
+    white-space:pre-wrap;
+  }
+
+
   /* ---------- Chat ---------- */
   .chat-box{
     background:var(--paper);
@@ -900,7 +1018,9 @@
       <!-- RANKING GERAL -->
       <section id="tab-ranking" class="tab hidden">
         <div class="section-title">Ranking geral</div>
-        <div class="section-sub">Ranking acumulado do bolão inteiro. Placar exato = 5 pts, vencedor/empate = +2 pts, placar de uma equipe = +1 pt.</div>
+        <div class="rules-shortcut-row">
+          <button class="btn btn-ghost btn-sm" onclick="openRulesModal()">📘 Ver regras do bolão</button>
+        </div>
         <div id="ranking-list"></div>
       </section>
 
@@ -908,7 +1028,11 @@
       <section id="tab-ranking-dia" class="tab hidden">
         <div class="section-title">Ranking do dia</div>
         <div class="section-sub">Conta apenas os pontos dos jogos do dia escolhido. O 1º deste ranking ganha a chance de escolher a música quando todos os jogos do dia forem finalizados.</div>
+        <div class="rules-shortcut-row">
+          <button class="btn btn-ghost btn-sm" onclick="openRulesModal()">📘 Ver regras do bolão</button>
+        </div>
         <div id="ranking-dia-controls"></div>
+        <div id="daily-winner-summary-box"></div>
         <div id="daily-music-choice-box"></div>
         <div id="ranking-dia-list"></div>
       </section>
@@ -1037,6 +1161,39 @@
   <div id="winner-music-modal" class="winner-modal hidden">
     <div class="winner-modal-card" id="winner-music-modal-content">
       <!-- preenchido via JavaScript -->
+    </div>
+  </div>
+
+  <!-- MODAL DE REGRAS DO BOLÃO -->
+  <div id="rules-modal" class="rules-modal hidden">
+    <div class="rules-modal-card">
+      <div class="rules-modal-title">📘 Regras do bolão</div>
+      <div class="section-sub" style="margin-bottom:8px;">Pontuação, ranking do dia e música escolhida.</div>
+      <div class="rules-list">
+        <div class="rule-item">
+          <div class="rule-icon">5</div>
+          <div class="rule-text">Placar exato vale 5 pontos.<br><span>Inclui empate exato, por exemplo 1 x 1.</span></div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon">2</div>
+          <div class="rule-text">Acertar o vencedor ou o empate vale 2 pontos.<br><span>Quando o placar exato não for acertado.</span></div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon">1</div>
+          <div class="rule-text">Acertar o placar de uma das equipes vale 1 ponto.<br><span>Exemplo: palpite 2 x 0 e resultado 1 x 0 = acertou o 0 do visitante.</span></div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon">🎵</div>
+          <div class="rule-text">A música é definida pelo 1º colocado do ranking do dia.<br><span>A liberação acontece quando o admin finaliza todos os jogos que começaram naquele dia.</span></div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon">⚡</div>
+          <div class="rule-text">Empate no 1º lugar do dia: quem salvar primeiro vence.<br><span>Todos os empatados no topo recebem a chance de escolher.</span></div>
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <button class="btn btn-primary" onclick="closeRulesModal()">Entendi</button>
+      </div>
     </div>
   </div>
 
@@ -1240,6 +1397,16 @@ window.completeOnboarding = async function(){
 };
 
 /* ---------------- Tabs ---------------- */
+window.openRulesModal = function(){
+  const modal = $('rules-modal');
+  if (modal) show(modal);
+};
+
+window.closeRulesModal = function(){
+  const modal = $('rules-modal');
+  if (modal) hide(modal);
+};
+
 window.openRankingDiaTab = function(){
   // Abrindo pelo menu: mostra sempre o ranking de hoje por padrão.
   rankingDiaFocusDateKey = getTodayBrasiliaDateKey();
@@ -1460,7 +1627,7 @@ function updateTopbarMusicChoice(){
   const textEl = $('music-choice-text');
   if (!label || !textEl) return;
 
-  const dateKey = dailyMusicDateKey || getLatestCompletedMatchDayKey();
+  const dateKey = currentRankingDiaDateKey || rankingDiaFocusDateKey || dailyMusicDateKey || getLatestCompletedMatchDayKey();
 
   if (!dateKey) {
     label.textContent = 'Música 1° Ranking 17/06';
@@ -2281,6 +2448,74 @@ function getRankingBorderColor(pos, total, isChampion=false){
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
+function renderDailyWinnerSummary(topLeaders, dateKey, selectionForDate=null, ranking=[]){
+  const box = $('daily-winner-summary-box');
+  if (!box) return;
+
+  if (!dateKey) {
+    box.innerHTML = '';
+    return;
+  }
+
+  const dateLabel = formatDateKeyBR(dateKey);
+  const dayMatches = allMatches.filter(m => getMatchDateKey(m) === dateKey);
+
+  if (dayMatches.length === 0) {
+    box.innerHTML = '';
+    return;
+  }
+
+  const finalizedMatches = dayMatches.filter(isMatchFinalized);
+  const pendingCount = Math.max(0, dayMatches.length - finalizedMatches.length);
+
+  if (!isMatchDayComplete(dateKey)) {
+    box.innerHTML = `
+      <div class="daily-winner-card">
+        <div class="daily-winner-title">🏆 Vencedor do dia ${dateLabel}</div>
+        <div class="daily-winner-body muted">Ainda não definido. ${finalizedMatches.length}/${dayMatches.length} jogo${dayMatches.length === 1 ? '' : 's'} finalizado${finalizedMatches.length === 1 ? '' : 's'}. Faltam ${pendingCount}.</div>
+      </div>`;
+    return;
+  }
+
+  const leaders = Array.isArray(topLeaders) ? topLeaders : [];
+  const topTotal = Number(ranking?.[0]?.total || leaders?.[0]?.total || 0);
+
+  if (!leaders.length || topTotal <= 0) {
+    box.innerHTML = `
+      <div class="daily-winner-card">
+        <div class="daily-winner-title">🏆 Vencedor do dia ${dateLabel}</div>
+        <div class="daily-winner-body muted">Os jogos do dia foram finalizados, mas ninguém pontuou nesse dia.</div>
+      </div>`;
+    return;
+  }
+
+  const savedText = selectionForDate?.requestText?.trim() || '';
+  const savedBy = selectionForDate?.leaderNickname || '';
+  const isTie = leaders.length > 1;
+  const names = leaders.map(leader => escapeHtml(leader.nickname)).join(', ');
+
+  let winnerLine = '';
+  if (savedText) {
+    winnerLine = `🎵 Música escolhida por ${escapeHtml(savedBy || '1º colocado')}:`;
+  } else if (isTie) {
+    winnerLine = '🎵 Música ainda não escolhida. Entre os empatados, quem salvar primeiro vence.';
+  } else {
+    winnerLine = `🎵 Música ainda não escolhida. Aguardando ${escapeHtml(leaders[0].nickname)} escolher.`;
+  }
+
+  box.innerHTML = `
+    <div class="daily-winner-card ready">
+      <div class="daily-winner-title">🏆 ${isTie ? 'Empate no topo' : 'Vencedor do dia'} ${dateLabel}</div>
+      <div class="daily-winner-body">
+        ${isTie
+          ? `Empatados em 1º: ${names} — ${topTotal} pt${topTotal === 1 ? '' : 's'}.`
+          : `${escapeHtml(leaders[0].nickname)} — ${topTotal} pt${topTotal === 1 ? '' : 's'}.`}
+        <br>${winnerLine}
+      </div>
+      ${savedText ? `<div class="daily-winner-music">${escapeHtml(savedText)}</div>` : ''}
+    </div>`;
+}
+
 function renderDailyMusicChoiceBox(topLeaders, dateKey, selectionForDate=null){
   const box = $('daily-music-choice-box');
   if (!box) return;
@@ -2506,8 +2741,10 @@ window.saveDailyMusicChoice = async function(){
       msg.textContent = 'Música salva! Você foi o primeiro entre os líderes empatados.';
       msg.className = 'daily-music-msg ok';
     }
-    rankingDiaFocusDateKey = '';
     closeWinnerMusicModal();
+    if (!$('tab-ranking-dia').classList.contains('hidden')) {
+      renderRankingDia();
+    }
   } catch (e) {
     console.error(e);
     if (msg) {
@@ -2573,8 +2810,10 @@ async function renderRanking(){
 async function renderRankingDia(){
   const list = $('ranking-dia-list');
   const musicBox = $('daily-music-choice-box');
+  const winnerBox = $('daily-winner-summary-box');
   if (list) list.innerHTML = `<div class="empty-state">Calculando ranking do dia...</div>`;
   if (musicBox) musicBox.innerHTML = '';
+  if (winnerBox) winnerBox.innerHTML = '';
 
   const dateKey = rankingDiaFocusDateKey || getTodayBrasiliaDateKey();
   currentRankingDiaDateKey = dateKey;
@@ -2613,6 +2852,7 @@ async function renderRankingDia(){
     }
   }
 
+  renderDailyWinnerSummary(topLeaders, dateKey, selectionForDate, ranking);
   renderDailyMusicChoiceBox(topLeaders, dateKey, selectionForDate);
 
   if (ranking.length === 0) {
