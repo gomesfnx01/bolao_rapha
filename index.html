@@ -507,6 +507,48 @@
   .admin-tab-switch .btn{flex:1;}
 
 
+  /* ---------- Ranking do Dia: filtros ---------- */
+  .daily-ranking-filter{
+    background:#FFF8E6;
+    border:1px solid #E8DDBE;
+    border-radius:14px;
+    padding:12px;
+    margin-bottom:14px;
+  }
+  .daily-ranking-filter-title{
+    font-size:12px;
+    color:var(--muted);
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.45px;
+    margin-bottom:8px;
+  }
+  .daily-ranking-filter-row{
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .daily-ranking-filter-row .btn{
+    flex:0 0 96px;
+  }
+  .daily-ranking-filter-row select{
+    flex:1;
+    min-width:0;
+  }
+  .daily-ranking-filter-note{
+    margin-top:8px;
+    font-size:11px;
+    color:var(--muted);
+    font-weight:700;
+    line-height:1.35;
+    text-align:center;
+  }
+  #palpites-save-bottom-box{
+    margin-top:14px;
+    margin-bottom:0;
+  }
+
+
   /* ---------- Chat ---------- */
   .chat-box{
     background:var(--paper);
@@ -837,12 +879,12 @@
       <section id="tab-palpites" class="tab">
         <div class="section-title">Palpites de hoje</div>
         <div class="section-sub">Aqui aparecem somente os jogos cadastrados para hoje. Palpites antigos ficam na aba Histórico.</div>
-        <div class="batch-save-box">
+        <div id="palpites-list"></div>
+        <div class="batch-save-box" id="palpites-save-bottom-box">
           <button class="btn btn-primary" id="save-all-predictions-btn" onclick="saveAllPredictions()">Salvar palpites preenchidos</button>
           <div class="batch-save-note">Preencha os jogos desejados e salve todos de uma vez. Palpites já salvos não podem ser alterados.</div>
           <div id="batch-save-msg" class="batch-save-msg"></div>
         </div>
-        <div id="palpites-list"></div>
       </section>
 
       <!-- HISTÓRICO -->
@@ -865,7 +907,8 @@
       <!-- RANKING DO DIA -->
       <section id="tab-ranking-dia" class="tab hidden">
         <div class="section-title">Ranking do dia</div>
-        <div class="section-sub">Conta apenas os pontos dos jogos do dia exibido abaixo. O 1º deste ranking ganha a chance de escolher a música quando todos os jogos do dia forem finalizados.</div>
+        <div class="section-sub">Conta apenas os pontos dos jogos do dia escolhido. O 1º deste ranking ganha a chance de escolher a música quando todos os jogos do dia forem finalizados.</div>
+        <div id="ranking-dia-controls"></div>
         <div id="daily-music-choice-box"></div>
         <div id="ranking-dia-list"></div>
       </section>
@@ -1064,6 +1107,7 @@ let adminMatchView = 'open';
 let winnerMusicNoticeShownForKey = '';
 let winnerMusicNoticeChecking = false;
 let rankingDiaFocusDateKey = ''; // usado quando o vencedor clica em "Escolher agora" para abrir o dia correto da música
+let currentRankingDiaDateKey = ''; // data atualmente exibida na aba Dia
 let unsubMatches = null;
 let unsubMyPreds = null;
 let unsubDailyMusic = null;
@@ -1197,8 +1241,20 @@ window.completeOnboarding = async function(){
 
 /* ---------------- Tabs ---------------- */
 window.openRankingDiaTab = function(){
-  rankingDiaFocusDateKey = '';
+  // Abrindo pelo menu: mostra sempre o ranking de hoje por padrão.
+  rankingDiaFocusDateKey = getTodayBrasiliaDateKey();
   switchTab('ranking-dia');
+};
+
+window.showRankingDiaHoje = function(){
+  rankingDiaFocusDateKey = getTodayBrasiliaDateKey();
+  renderRankingDia();
+};
+
+window.showRankingDiaDate = function(dateKey){
+  if (!dateKey) return;
+  rankingDiaFocusDateKey = dateKey;
+  renderRankingDia();
 };
 
 window.switchTab = function(tabName){
@@ -2147,6 +2203,43 @@ function getActiveDailyRankingDateKey(){
   return dateKeys.filter(dateKey => dateKey <= todayKey).pop() || dateKeys.pop() || '';
 }
 
+function getAvailableDailyRankingDateKeys(){
+  const todayKey = getTodayBrasiliaDateKey();
+  const matchesByDate = getMatchesByDateKey();
+  return Object.keys(matchesByDate)
+    .filter(dateKey => dateKey <= todayKey)
+    .sort();
+}
+
+function renderRankingDiaControls(selectedDateKey){
+  const controls = $('ranking-dia-controls');
+  if (!controls) return;
+
+  const todayKey = getTodayBrasiliaDateKey();
+  const allDateKeys = getAvailableDailyRankingDateKeys();
+  const previousDateKeys = allDateKeys.filter(dateKey => dateKey < todayKey).sort().reverse();
+  const selectedLabel = selectedDateKey ? formatDateKeyBR(selectedDateKey) : '';
+  const todayIsSelected = selectedDateKey === todayKey;
+
+  const previousOptions = previousDateKeys.length
+    ? `<option value="">Rever dias anteriores...</option>` + previousDateKeys.map(dateKey =>
+        `<option value="${dateKey}" ${dateKey === selectedDateKey ? 'selected' : ''}>${formatDateKeyBR(dateKey)}</option>`
+      ).join('')
+    : `<option value="">Sem dias anteriores ainda</option>`;
+
+  controls.innerHTML = `
+    <div class="daily-ranking-filter">
+      <div class="daily-ranking-filter-title">Escolha o dia do ranking</div>
+      <div class="daily-ranking-filter-row">
+        <button class="btn ${todayIsSelected ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="showRankingDiaHoje()">Hoje</button>
+        <select id="ranking-dia-date-select" onchange="showRankingDiaDate(this.value)">
+          ${previousOptions}
+        </select>
+      </div>
+      <div class="daily-ranking-filter-note">Exibindo ranking do dia ${selectedLabel || 'selecionado'}. Use “Hoje” para voltar ao dia atual ou escolha uma data anterior na lista.</div>
+    </div>`;
+}
+
 function getRankingPositionMap(ranking){
   const map = {};
   (ranking || []).forEach((user, idx) => {
@@ -2188,7 +2281,7 @@ function getRankingBorderColor(pos, total, isChampion=false){
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-function renderDailyMusicChoiceBox(topLeaders, dateKey){
+function renderDailyMusicChoiceBox(topLeaders, dateKey, selectionForDate=null){
   const box = $('daily-music-choice-box');
   if (!box) return;
 
@@ -2223,8 +2316,9 @@ function renderDailyMusicChoiceBox(topLeaders, dateKey){
     return;
   }
 
-  const savedText = dailyMusicDateKey === dateKey ? dailyMusicSelection?.requestText?.trim() : '';
-  const savedBy = dailyMusicDateKey === dateKey ? (dailyMusicSelection?.leaderNickname || '1° colocado') : '1° colocado';
+  const selection = selectionForDate || (dailyMusicDateKey === dateKey ? dailyMusicSelection : null);
+  const savedText = selection?.requestText?.trim() || '';
+  const savedBy = selection?.leaderNickname || '1° colocado';
 
   if (savedText) {
     box.innerHTML = `
@@ -2349,7 +2443,7 @@ window.saveDailyMusicChoice = async function(){
   const textarea = $('daily-music-request');
   const msg = $('daily-music-msg');
   const requestText = textarea?.value.trim();
-  const dateKey = dailyMusicDateKey || getLatestCompletedMatchDayKey();
+  const dateKey = currentRankingDiaDateKey || rankingDiaFocusDateKey || dailyMusicDateKey || getLatestCompletedMatchDayKey();
 
   if (!dateKey) {
     if (msg) {
@@ -2482,7 +2576,9 @@ async function renderRankingDia(){
   if (list) list.innerHTML = `<div class="empty-state">Calculando ranking do dia...</div>`;
   if (musicBox) musicBox.innerHTML = '';
 
-  const dateKey = rankingDiaFocusDateKey || getActiveDailyRankingDateKey();
+  const dateKey = rankingDiaFocusDateKey || getTodayBrasiliaDateKey();
+  currentRankingDiaDateKey = dateKey;
+  renderRankingDiaControls(dateKey);
 
   if (!dateKey) {
     renderDailyMusicChoiceBox([], '');
@@ -2492,13 +2588,32 @@ async function renderRankingDia(){
 
   const dateLabel = formatDateKeyBR(dateKey);
   const dayMatches = allMatches.filter(m => getMatchDateKey(m) === dateKey);
+
+  if (dayMatches.length === 0) {
+    renderDailyMusicChoiceBox([], dateKey);
+    if (list) list.innerHTML = `<div class="empty-state"><span class="big">📅</span>Nenhum jogo cadastrado para o dia ${dateLabel}.<br>Use a lista acima para rever rankings de dias anteriores.</div>`;
+    return;
+  }
+
   const finalizedMatches = dayMatches.filter(isMatchFinalized);
   const pendingCount = Math.max(0, dayMatches.length - finalizedMatches.length);
 
   const ranking = await buildRanking({ onlyDateKey: dateKey });
   const topLeaders = isMatchDayComplete(dateKey) ? getTopRankedUsers(ranking) : [];
 
-  renderDailyMusicChoiceBox(topLeaders, dateKey);
+  let selectionForDate = null;
+  if (dateKey === dailyMusicDateKey) {
+    selectionForDate = dailyMusicSelection;
+  } else if (isMatchDayComplete(dateKey)) {
+    try {
+      const selectionSnap = await getDoc(doc(db, 'musicSelections', dateKey));
+      selectionForDate = selectionSnap.exists() ? selectionSnap.data() : null;
+    } catch (e) {
+      console.warn('Não foi possível carregar a música escolhida para o dia selecionado:', e);
+    }
+  }
+
+  renderDailyMusicChoiceBox(topLeaders, dateKey, selectionForDate);
 
   if (ranking.length === 0) {
     list.innerHTML = `<div class="empty-state"><span class="big">🥇</span>Ainda não há participantes para o ranking do dia ${dateLabel}.</div>`;
