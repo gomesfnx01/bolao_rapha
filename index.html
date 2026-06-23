@@ -1027,7 +1027,6 @@
       <!-- RANKING DO DIA -->
       <section id="tab-ranking-dia" class="tab hidden">
         <div class="section-title">Ranking do dia</div>
-        <div class="section-sub">Conta apenas os pontos dos jogos do dia escolhido. O 1º deste ranking ganha a chance de escolher a música quando todos os jogos do dia forem finalizados.</div>
         <div class="rules-shortcut-row">
           <button class="btn btn-ghost btn-sm" onclick="openRulesModal()">📘 Ver regras do bolão</button>
         </div>
@@ -2468,12 +2467,10 @@ function renderDailyWinnerSummary(topLeaders, dateKey, selectionForDate=null, ra
   const finalizedMatches = dayMatches.filter(isMatchFinalized);
   const pendingCount = Math.max(0, dayMatches.length - finalizedMatches.length);
 
+  // Card único da aba Dia: junta vencedor + status da música.
+  // Antes havia dois cards muito parecidos: "Vencedor do dia" e "Música do 1º".
   if (!isMatchDayComplete(dateKey)) {
-    box.innerHTML = `
-      <div class="daily-winner-card">
-        <div class="daily-winner-title">🏆 Vencedor do dia ${dateLabel}</div>
-        <div class="daily-winner-body muted">Ainda não definido. ${finalizedMatches.length}/${dayMatches.length} jogo${dayMatches.length === 1 ? '' : 's'} finalizado${finalizedMatches.length === 1 ? '' : 's'}. Faltam ${pendingCount}.</div>
-      </div>`;
+    box.innerHTML = ``;
     return;
   }
 
@@ -2483,97 +2480,44 @@ function renderDailyWinnerSummary(topLeaders, dateKey, selectionForDate=null, ra
   if (!leaders.length || topTotal <= 0) {
     box.innerHTML = `
       <div class="daily-winner-card">
-        <div class="daily-winner-title">🏆 Vencedor do dia ${dateLabel}</div>
-        <div class="daily-winner-body muted">Os jogos do dia foram finalizados, mas ninguém pontuou nesse dia.</div>
-      </div>`;
-    return;
-  }
-
-  const savedText = selectionForDate?.requestText?.trim() || '';
-  const savedBy = selectionForDate?.leaderNickname || '';
-  const isTie = leaders.length > 1;
-  const names = leaders.map(leader => escapeHtml(leader.nickname)).join(', ');
-
-  let winnerLine = '';
-  if (savedText) {
-    winnerLine = `🎵 Música escolhida por ${escapeHtml(savedBy || '1º colocado')}:`;
-  } else if (isTie) {
-    winnerLine = '🎵 Música ainda não escolhida. Entre os empatados, quem salvar primeiro vence.';
-  } else {
-    winnerLine = `🎵 Música ainda não escolhida. Aguardando ${escapeHtml(leaders[0].nickname)} escolher.`;
-  }
-
-  box.innerHTML = `
-    <div class="daily-winner-card ready">
-      <div class="daily-winner-title">🏆 ${isTie ? 'Empate no topo' : 'Vencedor do dia'} ${dateLabel}</div>
-      <div class="daily-winner-body">
-        ${isTie
-          ? `Empatados em 1º: ${names} — ${topTotal} pt${topTotal === 1 ? '' : 's'}.`
-          : `${escapeHtml(leaders[0].nickname)} — ${topTotal} pt${topTotal === 1 ? '' : 's'}.`}
-        <br>${winnerLine}
-      </div>
-      ${savedText ? `<div class="daily-winner-music">${escapeHtml(savedText)}</div>` : ''}
-    </div>`;
-}
-
-function renderDailyMusicChoiceBox(topLeaders, dateKey, selectionForDate=null){
-  const box = $('daily-music-choice-box');
-  if (!box) return;
-
-  if (!dateKey) {
-    box.innerHTML = `
-      <div class="daily-music-card">
-        <div class="daily-music-title">🎵 Música do 1° do ranking</div>
-        <div class="daily-music-text muted">A escolha da música será liberada automaticamente depois que o administrador finalizar todos os jogos que começaram em um mesmo dia.</div>
-      </div>`;
-    return;
-  }
-
-  const dateLabel = formatDateKeyBR(dateKey);
-
-  if (!isMatchDayComplete(dateKey)) {
-    box.innerHTML = `
-      <div class="daily-music-card">
-        <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
-        <div class="daily-music-text muted">Aguardando o administrador finalizar todos os jogos que começaram no dia ${dateLabel}. Depois disso, o 1° colocado poderá escolher a música.</div>
-      </div>`;
-    return;
-  }
-
-  const leaders = Array.isArray(topLeaders) ? topLeaders : [];
-
-  if (leaders.length === 0) {
-    box.innerHTML = `
-      <div class="daily-music-card">
-        <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
-        <div class="daily-music-text muted">Todos os jogos do dia ${dateLabel} foram finalizados, mas ainda não há pontuação suficiente para liberar uma escolha de música.</div>
+        <div class="daily-winner-title">🏆 Vencedor e música do dia ${dateLabel}</div>
+        <div class="daily-winner-body muted">
+          Os jogos do dia foram finalizados, mas ninguém pontuou nesse dia. A música não foi liberada.
+        </div>
       </div>`;
     return;
   }
 
   const selection = selectionForDate || (dailyMusicDateKey === dateKey ? dailyMusicSelection : null);
   const savedText = selection?.requestText?.trim() || '';
-  const savedBy = selection?.leaderNickname || '1° colocado';
+  const savedBy = selection?.leaderNickname || '';
+  const isTie = leaders.length > 1;
+  const leaderNames = leaders.map(leader => escapeHtml(leader.nickname)).join(', ');
+  const isMyTurn = leaders.some(leader => leader.uid === currentUser.uid);
+
+  let title = `🏆 ${isTie ? 'Empate no topo' : 'Vencedor do dia'} ${dateLabel}`;
+  let body = isTie
+    ? `Empatados em 1º: ${leaderNames} — ${topTotal} pt${topTotal === 1 ? '' : 's'}.`
+    : `${escapeHtml(leaders[0].nickname)} — ${topTotal} pt${topTotal === 1 ? '' : 's'}.`;
 
   if (savedText) {
     box.innerHTML = `
-      <div class="daily-music-card">
-        <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
-        <div class="daily-music-text">${escapeHtml(savedBy)} escolheu:</div>
-        <div class="daily-music-choice">${escapeHtml(savedText)}</div>
+      <div class="daily-winner-card ready">
+        <div class="daily-winner-title">${title}</div>
+        <div class="daily-winner-body">
+          ${body}<br>
+          🎵 Música escolhida por ${escapeHtml(savedBy || '1º colocado')}:
+        </div>
+        <div class="daily-winner-music">${escapeHtml(savedText)}</div>
       </div>`;
     return;
   }
 
-  const isMyTurn = leaders.some(leader => leader.uid === currentUser.uid);
-  const isTie = leaders.length > 1;
-  const leaderNames = leaders.map(leader => escapeHtml(leader.nickname)).join(', ');
-
   if (isMyTurn) {
     box.innerHTML = `
-      <div class="daily-music-card">
-        <div class="daily-music-title">${isTie ? '⚡ Empate no 1° lugar!' : '👑 Você foi o 1° do ranking do dia ' + dateLabel + '!'}</div>
-        <div class="daily-music-text">
+      <div class="daily-winner-card ready">
+        <div class="daily-winner-title">${isTie ? '⚡ Empate no 1° lugar!' : '👑 Você foi o 1° do ranking do dia ' + dateLabel + '!'}</div>
+        <div class="daily-winner-body">
           ${isTie
             ? `Você está empatado em 1° no dia ${dateLabel}. Quem salvar a música primeiro vence. Empatados: ${leaderNames}.`
             : `Todos os jogos do dia ${dateLabel} já foram finalizados pelo administrador. Escreva abaixo qual música você quer deixar no app.`}
@@ -2585,17 +2529,26 @@ function renderDailyMusicChoiceBox(topLeaders, dateKey, selectionForDate=null){
         </div>
         <div id="daily-music-msg" class="daily-music-msg"></div>
       </div>`;
-  } else {
-    box.innerHTML = `
-      <div class="daily-music-card">
-        <div class="daily-music-title">🎵 Música do 1° do ranking do dia ${dateLabel}</div>
-        <div class="daily-music-text muted">
-          ${isTie
-            ? `Houve empate no 1° lugar entre: ${leaderNames}. Quem salvar primeiro escolhe a música do app.`
-            : `Todos os jogos do dia ${dateLabel} foram finalizados. Aguardando ${leaderNames} escolher a música do app.`}
-        </div>
-      </div>`;
+    return;
   }
+
+  box.innerHTML = `
+    <div class="daily-winner-card ready">
+      <div class="daily-winner-title">${title}</div>
+      <div class="daily-winner-body">
+        ${body}<br>
+        ${isTie
+          ? `🎵 Música ainda não escolhida. Quem salvar primeiro entre os empatados vence.`
+          : `🎵 Música ainda não escolhida. Aguardando ${escapeHtml(leaders[0].nickname)} escolher.`}
+      </div>
+    </div>`;
+}
+
+function renderDailyMusicChoiceBox(topLeaders, dateKey, selectionForDate=null){
+  // Mantido apenas para compatibilidade com chamadas antigas.
+  // A aba Dia agora usa um único card em renderDailyWinnerSummary(), evitando informação duplicada.
+  const box = $('daily-music-choice-box');
+  if (box) box.innerHTML = '';
 }
 
 
@@ -2667,7 +2620,7 @@ window.goToMusicChoice = function(dateKey=''){
   closeWinnerMusicModal();
   switchTab('ranking-dia');
   setTimeout(() => {
-    const box = $('daily-music-choice-box');
+    const box = $('daily-winner-summary-box') || $('daily-music-choice-box');
     if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
     const textarea = $('daily-music-request');
     if (textarea) textarea.focus();
