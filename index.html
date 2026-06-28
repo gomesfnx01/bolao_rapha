@@ -1172,6 +1172,18 @@
           <div class="rule-text">Acertar o placar de uma das equipes vale 1 ponto.<br><span>Exemplo: palpite 2 x 0 e resultado 1 x 0 = acertou o 0 do visitante.</span></div>
         </div>
         <div class="rule-item">
+          <div class="rule-icon">+1</div>
+          <div class="rule-text">Acertar se o jogo vai para prorrogação vale 1 ponto extra.<br><span>Marque a opção no card do jogo antes do início.</span></div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon">+1</div>
+          <div class="rule-text">Acertar se o jogo vai para pênaltis vale 1 ponto extra.<br><span>Disponível somente se você marcou prorrogação.</span></div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon">+1</div>
+          <div class="rule-text">Acertar quem passa nos pênaltis vale mais 1 ponto.<br><span>Selecione o time vencedor da disputa de pênaltis. Máximo de 8 pts por jogo.</span></div>
+        </div>
+        <div class="rule-item">
           <div class="rule-icon">🎵</div>
           <div class="rule-text">A música é definida pelo 1º colocado do ranking do dia.<br><span>A liberação acontece quando o admin finaliza todos os jogos que começaram naquele dia.</span></div>
         </div>
@@ -1694,23 +1706,41 @@ function calcPoints(pred, match){
   const scoreA = Number(match.scoreA);
   const scoreB = Number(match.scoreB);
 
-  // 5 pts: placar exato, incluindo empate exato
-  if (predA === scoreA && predB === scoreB) return 5;
-
+  // 5 pts: placar exato
   let points = 0;
+  if (predA === scoreA && predB === scoreB) {
+    points += 5;
+  } else {
+    // +2 pts: acertou o vencedor ou empate
+    const predDiff = Math.sign(predA - predB);
+    const realDiff = Math.sign(scoreA - scoreB);
+    if (predDiff === realDiff) points += 2;
+    // +1 pt: acertou o placar de uma das equipes
+    if (predA === scoreA || predB === scoreB) points += 1;
+  }
 
-  // +2 pts: acertou o vencedor ou acertou que seria empate, mas sem placar exato
-  const predDiff = Math.sign(predA - predB);
-  const realDiff = Math.sign(scoreA - scoreB);
-  if (predDiff === realDiff) points += 2;
+  // +1 pt: acertou se houve prorrogacao (so conta se o admin informou)
+  if (match.hasProrroga !== undefined && match.hasProrroga !== null) {
+    const predProrroga = pred.predProrroga === true || pred.predProrroga === 'true';
+    if (predProrroga === Boolean(match.hasProrroga)) points += 1;
+  }
 
-  // +1 pt: acertou o placar de uma das equipes
-  if (predA === scoreA || predB === scoreB) points += 1;
+  // +1 pt: acertou se foi para penaltis (so conta se o admin informou)
+  if (match.hasPenalti !== undefined && match.hasPenalti !== null) {
+    const predPenalti = pred.predPenalti === true || pred.predPenalti === 'true';
+    if (predPenalti === Boolean(match.hasPenalti)) points += 1;
+  }
+
+  // +1 pt: acertou o time vencedor nos penaltis (so conta se de fato houve penaltis)
+  if (match.hasPenalti && match.penaWinner) {
+    if (pred.predPenaWinner && pred.predPenaWinner === match.penaWinner) points += 1;
+  }
 
   return points;
 }
 
 function pointsBadgeClass(points){
+  if (points >= 6) return 'badge-points-5';   // 6,7,8 pts = ouro
   if (points === 5) return 'badge-points-5';
   if (points === 3) return 'badge-points-3';
   if (points === 2) return 'badge-points-2';
@@ -1740,7 +1770,17 @@ function capturePredictionDraftsFromDOM(){
       return;
     }
 
-    predictionDrafts[matchId] = { predA: a, predB: b };
+    const prorrogaEl = $('prorroga-' + matchId);
+    const penaltiEl  = $('penalti-' + matchId);
+    const penaWinEl  = $('pena-winner-' + matchId);
+
+    predictionDrafts[matchId] = {
+      predA: a,
+      predB: b,
+      predProrroga: prorrogaEl ? prorrogaEl.checked : (predictionDrafts[matchId]?.predProrroga ?? false),
+      predPenalti:  penaltiEl  ? penaltiEl.checked  : (predictionDrafts[matchId]?.predPenalti  ?? false),
+      predPenaWinner: penaWinEl ? penaWinEl.value   : (predictionDrafts[matchId]?.predPenaWinner ?? ''),
+    };
   });
 }
 
@@ -1757,7 +1797,39 @@ window.updatePredictionDraft = function(matchId){
     return;
   }
 
-  predictionDrafts[matchId] = { predA: a, predB: b };
+  const prorrogaEl = $('prorroga-' + matchId);
+  const penaltiEl  = $('penalti-' + matchId);
+  const penaWinEl  = $('pena-winner-' + matchId);
+
+  predictionDrafts[matchId] = {
+    predA: a,
+    predB: b,
+    predProrroga:   prorrogaEl ? prorrogaEl.checked : (predictionDrafts[matchId]?.predProrroga ?? false),
+    predPenalti:    penaltiEl  ? penaltiEl.checked  : (predictionDrafts[matchId]?.predPenalti  ?? false),
+    predPenaWinner: penaWinEl  ? penaWinEl.value    : (predictionDrafts[matchId]?.predPenaWinner ?? ''),
+  };
+};
+
+window.togglePenaltiVisibility = function(matchId){
+  const prorrogaEl = $('prorroga-' + matchId);
+  const penaltiBlock = $('penalti-block-' + matchId);
+  const penaltiEl   = $('penalti-' + matchId);
+  const penaWinBlock = $('pena-winner-block-' + matchId);
+  if (!penaltiBlock) return;
+  if (prorrogaEl && prorrogaEl.checked) {
+    penaltiBlock.style.display = '';
+  } else {
+    penaltiBlock.style.display = 'none';
+    if (penaltiEl) penaltiEl.checked = false;
+    if (penaWinBlock) penaWinBlock.style.display = 'none';
+  }
+};
+
+window.togglePenaWinnerVisibility = function(matchId){
+  const penaltiEl   = $('penalti-' + matchId);
+  const penaWinBlock = $('pena-winner-block-' + matchId);
+  if (!penaWinBlock) return;
+  penaWinBlock.style.display = (penaltiEl && penaltiEl.checked) ? '' : 'none';
 };
 
 window.renderPalpites = function(){
@@ -1780,10 +1852,66 @@ window.renderPalpites = function(){
     const isFinal = m.status === 'finalizado';
     const isLocked = isMatchLocked(m);
     const points = pred ? calcPoints(pred, m) : null;
+    const draft = predictionDrafts[m.id] || {};
 
+    const valA = pred ? pred.predA : (draft.predA ?? '');
+    const valB = pred ? pred.predB : (draft.predB ?? '');
+    const disableInputs = Boolean(pred || isLocked || isFinal);
+    const disabled = disableInputs ? 'disabled' : '';
+    const inputEvents = disableInputs ? '' : `oninput="updatePredictionDraft('${m.id}')"`;
+
+    // Valores salvos ou em draft para prorroga/penalti
+    const chkProrrogaVal  = pred ? (pred.predProrroga  === true || pred.predProrroga  === 'true') : Boolean(draft.predProrroga);
+    const chkPenaltiVal   = pred ? (pred.predPenalti   === true || pred.predPenalti   === 'true') : Boolean(draft.predPenalti);
+    const selPenaWinVal   = pred ? (pred.predPenaWinner || '') : (draft.predPenaWinner || '');
+
+    const chkProrroga  = chkProrrogaVal ? 'checked' : '';
+    const chkPenalti   = chkPenaltiVal  ? 'checked' : '';
+    const disabledStr  = disabled;
+
+    // Bloco de extras (prorroga + penalti), mostrado apenas se jogo nao foi palpitado ainda ou ja foi salvo
+    const penaWinnerOptions = [m.teamA, m.teamB].map(t =>
+      `<option value="${t}" ${selPenaWinVal === t ? 'selected' : ''}>${FLAG_BY_NAME[t] || ''} ${t}</option>`
+    ).join('');
+
+    const extraBlock = `
+      <div class="pred-extras" style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px;">
+        <div class="pred-extra-row" style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="prorroga-${m.id}" ${chkProrroga} ${disabledStr} onchange="updatePredictionDraft('${m.id}'); togglePenaltiVisibility('${m.id}')">
+          <label for="prorroga-${m.id}" style="margin:0;text-transform:none;font-size:13px;font-weight:700;color:var(--ink);letter-spacing:0;">
+            ⏱️ Vai para prorrogação? <span style="color:var(--muted);font-weight:600;">(+1 pt)</span>
+          </label>
+        </div>
+        <div id="penalti-block-${m.id}" style="${chkProrrogaVal ? '' : 'display:none;'}">
+          <div class="pred-extra-row" style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" id="penalti-${m.id}" ${chkPenalti} ${disabledStr} onchange="updatePredictionDraft('${m.id}'); togglePenaWinnerVisibility('${m.id}')">
+            <label for="penalti-${m.id}" style="margin:0;text-transform:none;font-size:13px;font-weight:700;color:var(--ink);letter-spacing:0;">
+              🥅 Vai para pênaltis? <span style="color:var(--muted);font-weight:600;">(+1 pt)</span>
+            </label>
+          </div>
+          <div id="pena-winner-block-${m.id}" style="margin-top:8px;${chkPenaltiVal ? '' : 'display:none;'}">
+            <label for="pena-winner-${m.id}" style="margin-top:0;font-size:12px;">Quem passa nos pênaltis? <span style="color:var(--muted);font-weight:600;">(+1 pt)</span></label>
+            <select id="pena-winner-${m.id}" ${disabledStr} onchange="updatePredictionDraft('${m.id}')">
+              <option value="">Selecione...</option>
+              ${penaWinnerOptions}
+            </select>
+          </div>
+        </div>
+      </div>`;
+
+    // Footer de resumo do palpite salvo
     let footer = '';
     if (pred) {
-      footer = `<div class="saved-note">✅ Palpite salvo: ${m.teamA} ${pred.predA} x ${pred.predB} ${m.teamB}</div>`;
+      const prorrogaTxt = pred.predProrroga === true || pred.predProrroga === 'true' ? 'Sim' : 'Não';
+      const penaltiTxt  = pred.predPenalti  === true || pred.predPenalti  === 'true' ? 'Sim' : 'Não';
+      let savedExtra = ` · Prorroga: ${prorrogaTxt}`;
+      if (pred.predProrroga === true || pred.predProrroga === 'true') {
+        savedExtra += ` · Pênaltis: ${penaltiTxt}`;
+        if (pred.predPenalti === true || pred.predPenalti === 'true') {
+          savedExtra += ` · Passa: ${pred.predPenaWinner || '—'}`;
+        }
+      }
+      footer = `<div class="saved-note">✅ Palpite salvo: ${m.teamA} ${pred.predA} x ${pred.predB} ${m.teamB}${savedExtra}</div>`;
       if (isFinal && points !== null) {
         const cls = pointsBadgeClass(points);
         footer += `<div class="result-note"><span class="badge ${cls}">+${points} pt${points===1?'':'s'}</span></div>`;
@@ -1793,15 +1921,8 @@ window.renderPalpites = function(){
     } else if (isLocked) {
       footer = `<div class="saved-note">⏰ Palpites encerrados: o jogo já começou.</div>`;
     } else {
-      footer = `<div class="saved-note">Preencha o placar e use o botão "Salvar palpites preenchidos".</div>`;
+      footer = `<div class="saved-note">Preencha o placar, marque as opções extras e salve.</div>`;
     }
-
-    const draft = predictionDrafts[m.id] || {};
-    const valA = pred ? pred.predA : (draft.predA ?? '');
-    const valB = pred ? pred.predB : (draft.predB ?? '');
-    const disableInputs = Boolean(pred || isLocked || isFinal);
-    const disabled = disableInputs ? 'disabled' : '';
-    const inputEvents = disableInputs ? '' : `oninput="updatePredictionDraft('${m.id}')"`;
 
     const statusBadge = isFinal
       ? `<span class="badge badge-done">Resultado: ${m.scoreA} x ${m.scoreB}</span>`
@@ -1812,7 +1933,7 @@ window.renderPalpites = function(){
     return `
       <div class="match-card">
         <div class="match-meta">
-          <span class="badge badge-group">Grupo ${m.group}</span>
+          <span class="badge badge-group">${m.group === '2F' ? '2ª Fase' : 'Grupo ' + m.group}</span>
           <span>${fmtDateTime(m.datetime)}</span>
         </div>
         <div class="teams-row">
@@ -1828,6 +1949,7 @@ window.renderPalpites = function(){
             <input type="number" min="0" max="20" class="score-box" id="score-b-${m.id}" value="${valB}" ${disabled} ${inputEvents}>
           </div>
         </div>
+        ${extraBlock}
         <div class="match-meta" style="margin-top:10px;margin-bottom:0;justify-content:center;">
           ${statusBadge}
         </div>
@@ -1920,7 +2042,15 @@ window.saveAllPredictions = async function(){
       return;
     }
 
-    toSave.push({ match: m, predA: a, predB: b });
+    // Capturar extras do DOM (prorroga / penalti / penaWinner)
+    const prorrogaEl = $('prorroga-' + m.id);
+    const penaltiEl  = $('penalti-' + m.id);
+    const penaWinEl  = $('pena-winner-' + m.id);
+    const predProrroga   = prorrogaEl ? prorrogaEl.checked : Boolean(draft.predProrroga);
+    const predPenalti    = penaltiEl  ? penaltiEl.checked  : Boolean(draft.predPenalti);
+    const predPenaWinner = penaWinEl  ? penaWinEl.value    : (draft.predPenaWinner || '');
+
+    toSave.push({ match: m, predA: a, predB: b, predProrroga, predPenalti, predPenaWinner });
   });
 
   if (partials.length > 0) {
@@ -1962,6 +2092,9 @@ window.saveAllPredictions = async function(){
         matchId: item.match.id,
         predA: item.predA,
         predB: item.predB,
+        predProrroga:   item.predProrroga,
+        predPenalti:    item.predPenalti,
+        predPenaWinner: item.predPenaWinner,
         createdAt: serverTimestamp()
       });
     }));
@@ -2980,10 +3113,16 @@ function renderAdmin(){
     const flagA = FLAG_BY_NAME[m.teamA] || '🏳️';
     const flagB = FLAG_BY_NAME[m.teamB] || '🏳️';
     const isFinal = m.status === 'finalizado';
+    const chkProrroga = m.hasProrroga ? 'checked' : '';
+    const chkPenalti  = m.hasPenalti  ? 'checked' : '';
+    const penaOpts = [m.teamA, m.teamB].map(t =>
+      `<option value="${t}" ${m.penaWinner === t ? 'selected' : ''}>${FLAG_BY_NAME[t] || ''} ${t}</option>`
+    ).join('');
+    const groupLabel = m.group === '2F' ? '2ª Fase' : 'Grupo ' + m.group;
     return `
       <div class="admin-match-row">
         <div class="admin-match-top">
-          <span>Grupo ${m.group} · ${fmtDateTime(m.datetime)}</span>
+          <span>${groupLabel} · ${fmtDateTime(m.datetime)}</span>
           <span>${isFinal ? '✅ Finalizado' : '⏳ Em aberto'}</span>
         </div>
         <div class="admin-match-teams">
@@ -2994,6 +3133,27 @@ function renderAdmin(){
           <span style="font-family:'Anton',sans-serif;color:var(--muted);">x</span>
           <input type="number" min="0" max="20" id="admin-score-b-${m.id}" value="${m.scoreB ?? ''}">
         </div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" id="admin-prorroga-${m.id}" ${chkProrroga}
+              onchange="adminTogglePenaltiBlock('${m.id}')">
+            <label for="admin-prorroga-${m.id}" style="margin:0;font-size:12px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--ink);">⏱️ Houve prorrogação?</label>
+          </div>
+          <div id="admin-penalti-block-${m.id}" style="${m.hasProrroga ? '' : 'display:none;'}">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <input type="checkbox" id="admin-penalti-${m.id}" ${chkPenalti}
+                onchange="adminTogglePenaWinnerBlock('${m.id}')">
+              <label for="admin-penalti-${m.id}" style="margin:0;font-size:12px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--ink);">🥅 Houve pênaltis?</label>
+            </div>
+            <div id="admin-pena-winner-block-${m.id}" style="${m.hasPenalti ? '' : 'display:none;'}">
+              <label for="admin-pena-winner-${m.id}" style="margin-top:0;font-size:11px;">Quem passou nos pênaltis?</label>
+              <select id="admin-pena-winner-${m.id}">
+                <option value="">Selecione...</option>
+                ${penaOpts}
+              </select>
+            </div>
+          </div>
+        </div>
         <div class="admin-actions">
           <button class="btn btn-primary btn-sm" onclick="finalizeMatch('${m.id}')">${isFinal ? 'Atualizar resultado' : 'Salvar resultado'}</button>
           <button class="btn btn-danger btn-sm" onclick="deleteMatch('${m.id}')">Excluir</button>
@@ -3002,6 +3162,28 @@ function renderAdmin(){
   }).join('');
 }
 
+window.adminTogglePenaltiBlock = function(matchId){
+  const prorrogaEl = $('admin-prorroga-' + matchId);
+  const block = $('admin-penalti-block-' + matchId);
+  const penaltiEl = $('admin-penalti-' + matchId);
+  const penaWinBlock = $('admin-pena-winner-block-' + matchId);
+  if (!block) return;
+  if (prorrogaEl && prorrogaEl.checked) {
+    block.style.display = '';
+  } else {
+    block.style.display = 'none';
+    if (penaltiEl) penaltiEl.checked = false;
+    if (penaWinBlock) penaWinBlock.style.display = 'none';
+  }
+};
+
+window.adminTogglePenaWinnerBlock = function(matchId){
+  const penaltiEl = $('admin-penalti-' + matchId);
+  const penaWinBlock = $('admin-pena-winner-block-' + matchId);
+  if (!penaWinBlock) return;
+  penaWinBlock.style.display = (penaltiEl && penaltiEl.checked) ? '' : 'none';
+};
+
 window.finalizeMatch = async function(matchId){
   const a = $('admin-score-a-' + matchId).value;
   const b = $('admin-score-b-' + matchId).value;
@@ -3009,9 +3191,26 @@ window.finalizeMatch = async function(matchId){
     alert('Informe os dois placares.');
     return;
   }
+
+  const prorrogaEl = $('admin-prorroga-' + matchId);
+  const penaltiEl  = $('admin-penalti-'  + matchId);
+  const penaWinEl  = $('admin-pena-winner-' + matchId);
+
+  const hasProrroga = prorrogaEl ? prorrogaEl.checked : false;
+  const hasPenalti  = (hasProrroga && penaltiEl) ? penaltiEl.checked : false;
+  const penaWinner  = (hasPenalti && penaWinEl) ? penaWinEl.value : '';
+
+  if (hasPenalti && !penaWinner) {
+    alert('Selecione qual time passou nos pênaltis.');
+    return;
+  }
+
   await updateDoc(doc(db, 'matches', matchId), {
     scoreA: Number(a),
     scoreB: Number(b),
+    hasProrroga,
+    hasPenalti,
+    penaWinner: penaWinner || null,
     status: 'finalizado',
     finalizedAt: serverTimestamp()
   });
