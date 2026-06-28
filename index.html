@@ -929,7 +929,7 @@
   <!-- ============ AUTH SCREEN ============ -->
   <div id="auth-screen" class="screen hidden">
     <div class="logo">BOLÃO <span>2026</span></div>
-    <div class="tagline">Palpites da fase de grupos da Copa do Mundo</div>
+    <div class="tagline">Palpites da Copa do Mundo 2026</div>
     <div class="auth-card">
       <div class="auth-toggle">
         <button id="tab-login-btn" class="active" onclick="setAuthMode('login')">Entrar</button>
@@ -973,7 +973,7 @@
       <h1>Bolão <span class="titulo-hardcore text-red-500">HARDCORE -</span> <span style="color:var(--amber);">Copa 2026</span></h1>
       <div class="topbar-content-row">
         <div class="topbar-sub-group">
-          <div class="sub" id="topbar-sub">Fase de grupos</div>
+          <div class="sub" id="topbar-sub">Segunda fase em diante</div>
           <div class="sub" id="music-choice-label">Música do 1° do ranking</div>
           <div class="sub music-choice-sub hidden" id="music-choice-text"></div>
         </div>
@@ -1095,20 +1095,10 @@
 
         <div class="card" style="margin-bottom:16px;">
           <div style="font-weight:800;font-size:14px;color:var(--pitch);margin-bottom:4px;">Novo jogo</div>
-          <label style="margin-top:8px;">Grupo</label>
-          <select id="admin-group" onchange="populateAdminTeams()">
-            <option value="">Selecione...</option>
-            <option value="A">Grupo A</option><option value="B">Grupo B</option>
-            <option value="C">Grupo C</option><option value="D">Grupo D</option>
-            <option value="E">Grupo E</option><option value="F">Grupo F</option>
-            <option value="G">Grupo G</option><option value="H">Grupo H</option>
-            <option value="I">Grupo I</option><option value="J">Grupo J</option>
-            <option value="K">Grupo K</option><option value="L">Grupo L</option>
-          </select>
-          <label>Time A</label>
-          <select id="admin-team-a"><option value="">Selecione o grupo primeiro</option></select>
+          <label style="margin-top:8px;">Time A</label>
+          <select id="admin-team-a"><option value="">Selecione...</option></select>
           <label>Time B</label>
-          <select id="admin-team-b"><option value="">Selecione o grupo primeiro</option></select>
+          <select id="admin-team-b"><option value="">Selecione...</option></select>
           <label>Data e horário (Brasília)</label>
           <input type="datetime-local" id="admin-datetime">
           <div style="margin-top:18px;">
@@ -1231,23 +1221,46 @@ const fbApp = initializeApp(FIREBASE_CONFIG);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 
-/* ---------------- Times por grupo (Copa 2026) ---------------- */
-const TEAMS_BY_GROUP = {
-  A: [["México","🇲🇽"],["África do Sul","🇿🇦"],["Coreia do Sul","🇰🇷"],["Rep. Tcheca","🇨🇿"]],
-  B: [["Canadá","🇨🇦"],["Bósnia","🇧🇦"],["Catar","🇶🇦"],["Suíça","🇨🇭"]],
-  C: [["Brasil","🇧🇷"],["Marrocos","🇲🇦"],["Haiti","🇭🇹"],["Escócia","🏴"]],
-  D: [["EUA","🇺🇸"],["Paraguai","🇵🇾"],["Austrália","🇦🇺"],["Turquia","🇹🇷"]],
-  E: [["Alemanha","🇩🇪"],["Curaçao","🇨🇼"],["Costa do Marfim","🇨🇮"],["Equador","🇪🇨"]],
-  F: [["Holanda","🇳🇱"],["Japão","🇯🇵"],["Suécia","🇸🇪"],["Tunísia","🇹🇳"]],
-  G: [["Bélgica","🇧🇪"],["Egito","🇪🇬"],["Irã","🇮🇷"],["Nova Zelândia","🇳🇿"]],
-  H: [["Espanha","🇪🇸"],["Cabo Verde","🇨🇻"],["Arábia Saudita","🇸🇦"],["Uruguai","🇺🇾"]],
-  I: [["França","🇫🇷"],["Senegal","🇸🇳"],["Iraque","🇮🇶"],["Noruega","🇳🇴"]],
-  J: [["Argentina","🇦🇷"],["Argélia","🇩🇿"],["Áustria","🇦🇹"],["Jordânia","🇯🇴"]],
-  K: [["Portugal","🇵🇹"],["RD Congo","🇨🇩"],["Uzbequistão","🇺🇿"],["Colômbia","🇨🇴"]],
-  L: [["Inglaterra","🏴"],["Croácia","🇭🇷"],["Gana","🇬🇭"],["Panamá","🇵🇦"]]
-};
+/* ---------------- Seleções classificadas — Segunda fase em diante ---------------- */
+const QUALIFIED_TEAMS = [
+  ["Alemanha","🇩🇪"],
+  ["Paraguai","🇵🇾"],
+  ["França","🇫🇷"],
+  ["Suécia","🇸🇪"],
+  ["África do Sul","🇿🇦"],
+  ["Canadá","🇨🇦"],
+  ["Holanda","🇳🇱"],
+  ["Marrocos","🇲🇦"],
+  ["Portugal","🇵🇹"],
+  ["Croácia","🇭🇷"],
+  ["Espanha","🇪🇸"],
+  ["Áustria","🇦🇹"],
+  ["Estados Unidos","🇺🇸"],
+  ["Bósnia","🇧🇦"],
+  ["Bélgica","🇧🇪"],
+  ["Senegal","🇸🇳"],
+  ["Brasil","🇧🇷"],
+  ["Japão","🇯🇵"],
+  ["Costa do Marfim","🇨🇮"],
+  ["Noruega","🇳🇴"],
+  ["México","🇲🇽"],
+  ["Equador","🇪🇨"],
+  ["Inglaterra","🏴󠁧󠁢󠁥󠁮󠁧󠁿"],
+  ["RD Congo","🇨🇩"],
+  ["Argentina","🇦🇷"],
+  ["Cabo Verde","🇨🇻"],
+  ["Austrália","🇦🇺"],
+  ["Egito","🇪🇬"],
+  ["Suíça","🇨🇭"],
+  ["Argélia","🇩🇿"],
+  ["Colômbia","🇨🇴"],
+  ["Gana","🇬🇭"]
+];
+
+// Mantém compatibilidade com FLAG_BY_NAME usado no resto do app
+const TEAMS_BY_GROUP = { _all: QUALIFIED_TEAMS };
 const FLAG_BY_NAME = {};
-Object.values(TEAMS_BY_GROUP).flat().forEach(([name,flag]) => FLAG_BY_NAME[name] = flag);
+QUALIFIED_TEAMS.forEach(([name,flag]) => FLAG_BY_NAME[name] = flag);
 
 /* ---------------- Estado global ---------------- */
 let currentUser = null;
@@ -2891,30 +2904,24 @@ window.saveProfile = async function(){
 };
 
 /* ---------------- Render: Admin ---------------- */
-window.populateAdminTeams = function(){
-  const group = $('admin-group').value;
-  const teamA = $('admin-team-a');
-  const teamB = $('admin-team-b');
-  if (!group) {
-    teamA.innerHTML = '<option value="">Selecione o grupo primeiro</option>';
-    teamB.innerHTML = '<option value="">Selecione o grupo primeiro</option>';
-    return;
-  }
-  const teams = TEAMS_BY_GROUP[group];
-  const options = teams.map(([name, flag]) => `<option value="${name}">${flag} ${name}</option>`).join('');
-  teamA.innerHTML = `<option value="">Selecione...</option>` + options;
-  teamB.innerHTML = `<option value="">Selecione...</option>` + options;
-};
+// Preenche os selects de time com todas as seleções classificadas
+function populateAdminTeamSelects(){
+  const options = QUALIFIED_TEAMS
+    .map(([name, flag]) => `<option value="${name}">${flag} ${name}</option>`)
+    .join('');
+  const base = `<option value="">Selecione...</option>` + options;
+  $('admin-team-a').innerHTML = base;
+  $('admin-team-b').innerHTML = base;
+}
 
 window.createMatch = async function(){
-  const group = $('admin-group').value;
   const teamA = $('admin-team-a').value;
   const teamB = $('admin-team-b').value;
   const datetime = $('admin-datetime').value;
   const msgEl = $('admin-create-msg');
 
-  if (!group || !teamA || !teamB || !datetime) {
-    msgEl.innerHTML = `<div class="error-msg">Preencha grupo, os dois times e a data.</div>`;
+  if (!teamA || !teamB || !datetime) {
+    msgEl.innerHTML = `<div class="error-msg">Selecione os dois times e a data/horário.</div>`;
     return;
   }
   if (teamA === teamB) {
@@ -2923,7 +2930,7 @@ window.createMatch = async function(){
   }
   try {
     await setDoc(doc(collection(db, 'matches')), {
-      group, teamA, teamB, datetime,
+      group: '2F', teamA, teamB, datetime,
       kickoffAt: Timestamp.fromDate(new Date(datetime)),
       scoreA: null, scoreB: null, status: 'agendado',
       createdAt: serverTimestamp()
@@ -2934,7 +2941,7 @@ window.createMatch = async function(){
     $('admin-datetime').value = '';
   } catch(e) {
     console.error(e);
-    msgEl.innerHTML = `<div class="error-msg">Erro ao criar o jogo.</div>`;
+    msgEl.innerHTML = `<div class="error-msg">Erro ao criar o jogo. Tente novamente.</div>`;
   }
 };
 
@@ -2949,6 +2956,9 @@ function renderAdmin(){
   const openBtn = $('admin-open-tab');
   const finalizedBtn = $('admin-finalized-tab');
   if (!list) return;
+
+  // Preenche os selects de time sempre que o painel for renderizado
+  populateAdminTeamSelects();
 
   const showingFinalized = adminMatchView === 'finalized';
   if (title) title.textContent = showingFinalized ? 'Jogos finalizados' : 'Jogos em aberto';
