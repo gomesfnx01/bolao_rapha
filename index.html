@@ -1161,31 +1161,31 @@
       <div class="rules-list">
         <div class="rule-item">
           <div class="rule-icon">5</div>
-          <div class="rule-text">Placar exato vale 5 pontos.<br><span>Inclui empate exato, por exemplo 1 x 1.</span></div>
+          <div class="rule-text">Placar exato vale 5 pontos — vale para cada bloco.<br><span>Tempo normal, 1º e 2º tempo, tempos da prorrogação e pênaltis contam separadamente.</span></div>
         </div>
         <div class="rule-item">
           <div class="rule-icon">2</div>
-          <div class="rule-text">Acertar o vencedor ou o empate vale 2 pontos.<br><span>Quando o placar exato não for acertado.</span></div>
+          <div class="rule-text">Acertar o vencedor ou empate (sem placar exato) vale 2 pontos.<br><span>Vale para cada bloco de placar apostado.</span></div>
         </div>
         <div class="rule-item">
           <div class="rule-icon">1</div>
-          <div class="rule-text">Acertar o placar de uma das equipes vale 1 ponto.<br><span>Exemplo: palpite 2 x 0 e resultado 1 x 0 = acertou o 0 do visitante.</span></div>
+          <div class="rule-text">Acertar o placar de um dos lados vale 1 ponto extra.<br><span>Exemplo: palpite 2 x 0, resultado 1 x 0 — acertou o 0 do visitante.</span></div>
         </div>
         <div class="rule-item">
-          <div class="rule-icon">+1</div>
-          <div class="rule-text">Acertar se o jogo vai para prorrogação vale 1 ponto extra.<br><span>Marque a opção no card do jogo antes do início.</span></div>
+          <div class="rule-icon">📋</div>
+          <div class="rule-text">Palpite obrigatório: placar final + 1º e 2º tempo (acumulado).<br><span>O 2º tempo deve bater com o placar final. Ex: se o jogo termina 2 x 1, o 2º tempo acumulado deve ser 2 x 1.</span></div>
         </div>
         <div class="rule-item">
-          <div class="rule-icon">+1</div>
-          <div class="rule-text">Acertar se o jogo vai para pênaltis vale 1 ponto extra.<br><span>Disponível somente se você marcou prorrogação.</span></div>
+          <div class="rule-icon">⏱️</div>
+          <div class="rule-text">Prorrogação aparece automaticamente se você palpitar empate.<br><span>Palpite os dois tempos da prorrogação (acumulados). Se também empatar, libera o bloco de pênaltis.</span></div>
         </div>
         <div class="rule-item">
-          <div class="rule-icon">+1</div>
-          <div class="rule-text">Acertar quem passa nos pênaltis vale mais 1 ponto.<br><span>Selecione o time vencedor da disputa de pênaltis. Máximo de 8 pts por jogo.</span></div>
+          <div class="rule-icon">🥅</div>
+          <div class="rule-text">Pênaltis: palpite o placar exato da disputa (ex: 5 x 3).<br><span>Disponível somente se você palpitar empate nos dois tempos da prorrogação.</span></div>
         </div>
         <div class="rule-item">
           <div class="rule-icon">🎵</div>
-          <div class="rule-text">A música é definida pelo 1º colocado do ranking do dia.<br><span>A liberação acontece quando o admin finaliza todos os jogos que começaram naquele dia.</span></div>
+          <div class="rule-text">A música é definida pelo 1º colocado do ranking do dia.<br><span>A liberação acontece quando o admin finaliza todos os jogos do dia.</span></div>
         </div>
         <div class="rule-item">
           <div class="rule-icon">⚡</div>
@@ -1214,7 +1214,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs,
-  query, orderBy, onSnapshot, serverTimestamp, deleteDoc, Timestamp,
+  query, where, orderBy, onSnapshot, serverTimestamp, deleteDoc, Timestamp,
   runTransaction, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -1294,6 +1294,12 @@ let unsubMyPreds = null;
 let unsubDailyMusic = null;
 let unsubChatMessages = null;
 let pendingPhotoBase64 = { onboard: null, profile: null };
+
+// Cache local para evitar getDocs repetidos nas coleções grandes
+let cachedUsers = null;          // { uid -> { nickname, photoBase64 } }
+let cachedAllPreds = null;       // [ ...data de todos os predictions ]
+let cacheAllPredsTs = 0;         // timestamp da última busca
+const CACHE_ALL_PREDS_TTL = 60000; // 60s — só rebusca se invalidado por novo palpite
 
 /* ---------------- Helpers ---------------- */
 function $(id){ return document.getElementById(id); }
@@ -1417,6 +1423,7 @@ window.completeOnboarding = async function(){
   if (pendingPhotoBase64.onboard) data.photoBase64 = pendingPhotoBase64.onboard;
   await updateDoc(doc(db, 'users', currentUser.uid), data);
   userProfile = { ...userProfile, ...data };
+  cachedUsers = null;
   enterApp();
 };
 
@@ -1500,14 +1507,13 @@ function subscribeMatches(){
 
 function subscribeMyPredictions(){
   if (unsubMyPreds) unsubMyPreds();
-  const q = collection(db, 'predictions');
+  // Lê somente os palpites do próprio usuário, não a coleção inteira
+  const q = query(collection(db, 'predictions'), where('uid', '==', currentUser.uid));
   unsubMyPreds = onSnapshot(q, snap => {
     myPredictions = {};
     snap.docs.forEach(d => {
       const data = d.data();
-      if (data.uid === currentUser.uid) {
-        myPredictions[data.matchId] = { predA: data.predA, predB: data.predB };
-      }
+      myPredictions[data.matchId] = data;
     });
     renderPalpites();
     if (!$('tab-historico').classList.contains('hidden')) renderHistorico();
@@ -1698,50 +1704,52 @@ function isMatchLocked(match){
   return Date.now() >= kickoffTime;
 }
 
+// Avalia um único bloco de placar: retorna 0-5 pts
+function scoreBlock(pA, pB, rA, rB){
+  pA = Number(pA); pB = Number(pB); rA = Number(rA); rB = Number(rB);
+  if (isNaN(pA) || isNaN(pB)) return 0;
+  if (pA === rA && pB === rB) return 5;
+  let pts = 0;
+  if (Math.sign(pA - pB) === Math.sign(rA - rB)) pts += 2;
+  if (pA === rA || pB === rB) pts += 1;
+  return pts;
+}
+
 function calcPoints(pred, match){
   if (match.status !== 'finalizado' || match.scoreA == null || match.scoreB == null) return null;
 
-  const predA = Number(pred.predA);
-  const predB = Number(pred.predB);
-  const scoreA = Number(match.scoreA);
-  const scoreB = Number(match.scoreB);
-
-  // 5 pts: placar exato
   let points = 0;
-  if (predA === scoreA && predB === scoreB) {
-    points += 5;
-  } else {
-    // +2 pts: acertou o vencedor ou empate
-    const predDiff = Math.sign(predA - predB);
-    const realDiff = Math.sign(scoreA - scoreB);
-    if (predDiff === realDiff) points += 2;
-    // +1 pt: acertou o placar de uma das equipes
-    if (predA === scoreA || predB === scoreB) points += 1;
-  }
 
-  // +1 pt: acertou se houve prorrogacao (so conta se o admin informou)
-  if (match.hasProrroga !== undefined && match.hasProrroga !== null) {
-    const predProrroga = pred.predProrroga === true || pred.predProrroga === 'true';
-    if (predProrroga === Boolean(match.hasProrroga)) points += 1;
-  }
+  // Placar tempo normal
+  points += scoreBlock(pred.predA, pred.predB, match.scoreA, match.scoreB);
 
-  // +1 pt: acertou se foi para penaltis (so conta se o admin informou)
-  if (match.hasPenalti !== undefined && match.hasPenalti !== null) {
-    const predPenalti = pred.predPenalti === true || pred.predPenalti === 'true';
-    if (predPenalti === Boolean(match.hasPenalti)) points += 1;
-  }
+  // 1º tempo normal
+  if (match.score1TA != null && match.score1TB != null && pred.pred1TA != null && pred.pred1TB != null)
+    points += scoreBlock(pred.pred1TA, pred.pred1TB, match.score1TA, match.score1TB);
 
-  // +1 pt: acertou o time vencedor nos penaltis (so conta se de fato houve penaltis)
-  if (match.hasPenalti && match.penaWinner) {
-    if (pred.predPenaWinner && pred.predPenaWinner === match.penaWinner) points += 1;
-  }
+  // 2º tempo normal (placar acumulado)
+  if (match.score2TA != null && match.score2TB != null && pred.pred2TA != null && pred.pred2TB != null)
+    points += scoreBlock(pred.pred2TA, pred.pred2TB, match.score2TA, match.score2TB);
+
+  // 1º tempo prorrogação
+  if (match.score1PA != null && match.score1PB != null && pred.pred1PA != null && pred.pred1PB != null)
+    points += scoreBlock(pred.pred1PA, pred.pred1PB, match.score1PA, match.score1PB);
+
+  // 2º tempo prorrogação (placar acumulado da prorroga)
+  if (match.score2PA != null && match.score2PB != null && pred.pred2PA != null && pred.pred2PB != null)
+    points += scoreBlock(pred.pred2PA, pred.pred2PB, match.score2PA, match.score2PB);
+
+  // Pênaltis
+  if (match.scorePenA != null && match.scorePenB != null && pred.predPenA != null && pred.predPenB != null)
+    points += scoreBlock(pred.predPenA, pred.predPenB, match.scorePenA, match.scorePenB);
 
   return points;
 }
 
 function pointsBadgeClass(points){
-  if (points >= 6) return 'badge-points-5';   // 6,7,8 pts = ouro
-  if (points === 5) return 'badge-points-5';
+  if (points >= 10) return 'badge-points-5';  // ouro para pontuacoes altas
+  if (points >= 5)  return 'badge-points-5';
+  if (points === 4) return 'badge-points-3';
   if (points === 3) return 'badge-points-3';
   if (points === 2) return 'badge-points-2';
   if (points === 1) return 'badge-points-1';
@@ -1754,6 +1762,13 @@ function setBatchSaveMsg(text, type=''){
   if (!el) return;
   el.textContent = text || '';
   el.className = 'batch-save-msg' + (type ? ` ${type}` : '');
+}
+
+function readScorePair(idA, idB, draft, dkA, dkB){
+  const elA = $(idA), elB = $(idB);
+  const vA = elA ? elA.value : (draft[dkA] ?? '');
+  const vB = elB ? elB.value : (draft[dkB] ?? '');
+  return { a: vA, b: vB };
 }
 
 function capturePredictionDraftsFromDOM(){
@@ -1770,16 +1785,20 @@ function capturePredictionDraftsFromDOM(){
       return;
     }
 
-    const prorrogaEl = $('prorroga-' + matchId);
-    const penaltiEl  = $('penalti-' + matchId);
-    const penaWinEl  = $('pena-winner-' + matchId);
+    const draft = predictionDrafts[matchId] || {};
+    const t1 = readScorePair('t1-a-'+matchId, 't1-b-'+matchId, draft, 'pred1TA', 'pred1TB');
+    const t2 = readScorePair('t2-a-'+matchId, 't2-b-'+matchId, draft, 'pred2TA', 'pred2TB');
+    const p1 = readScorePair('p1-a-'+matchId, 'p1-b-'+matchId, draft, 'pred1PA', 'pred1PB');
+    const p2 = readScorePair('p2-a-'+matchId, 'p2-b-'+matchId, draft, 'pred2PA', 'pred2PB');
+    const pen = readScorePair('pen-a-'+matchId, 'pen-b-'+matchId, draft, 'predPenA', 'predPenB');
 
     predictionDrafts[matchId] = {
-      predA: a,
-      predB: b,
-      predProrroga: prorrogaEl ? prorrogaEl.checked : (predictionDrafts[matchId]?.predProrroga ?? false),
-      predPenalti:  penaltiEl  ? penaltiEl.checked  : (predictionDrafts[matchId]?.predPenalti  ?? false),
-      predPenaWinner: penaWinEl ? penaWinEl.value   : (predictionDrafts[matchId]?.predPenaWinner ?? ''),
+      predA: a, predB: b,
+      pred1TA: t1.a, pred1TB: t1.b,
+      pred2TA: t2.a, pred2TB: t2.b,
+      pred1PA: p1.a, pred1PB: p1.b,
+      pred2PA: p2.a, pred2PB: p2.b,
+      predPenA: pen.a, predPenB: pen.b,
     };
   });
 }
@@ -1797,40 +1816,58 @@ window.updatePredictionDraft = function(matchId){
     return;
   }
 
-  const prorrogaEl = $('prorroga-' + matchId);
-  const penaltiEl  = $('penalti-' + matchId);
-  const penaWinEl  = $('pena-winner-' + matchId);
+  const draft = predictionDrafts[matchId] || {};
+  const t1 = readScorePair('t1-a-'+matchId, 't1-b-'+matchId, draft, 'pred1TA', 'pred1TB');
+  const t2 = readScorePair('t2-a-'+matchId, 't2-b-'+matchId, draft, 'pred2TA', 'pred2TB');
+  const p1 = readScorePair('p1-a-'+matchId, 'p1-b-'+matchId, draft, 'pred1PA', 'pred1PB');
+  const p2 = readScorePair('p2-a-'+matchId, 'p2-b-'+matchId, draft, 'pred2PA', 'pred2PB');
+  const pen = readScorePair('pen-a-'+matchId, 'pen-b-'+matchId, draft, 'predPenA', 'predPenB');
 
   predictionDrafts[matchId] = {
-    predA: a,
-    predB: b,
-    predProrroga:   prorrogaEl ? prorrogaEl.checked : (predictionDrafts[matchId]?.predProrroga ?? false),
-    predPenalti:    penaltiEl  ? penaltiEl.checked  : (predictionDrafts[matchId]?.predPenalti  ?? false),
-    predPenaWinner: penaWinEl  ? penaWinEl.value    : (predictionDrafts[matchId]?.predPenaWinner ?? ''),
+    predA: a, predB: b,
+    pred1TA: t1.a, pred1TB: t1.b,
+    pred2TA: t2.a, pred2TB: t2.b,
+    pred1PA: p1.a, pred1PB: p1.b,
+    pred2PA: p2.a, pred2PB: p2.b,
+    predPenA: pen.a, predPenB: pen.b,
   };
+
+  // Visibilidade dos blocos condicionais baseada no placar principal
+  updateExtraBlocksVisibility(matchId, a, b);
 };
 
-window.togglePenaltiVisibility = function(matchId){
-  const prorrogaEl = $('prorroga-' + matchId);
-  const penaltiBlock = $('penalti-block-' + matchId);
-  const penaltiEl   = $('penalti-' + matchId);
-  const penaWinBlock = $('pena-winner-block-' + matchId);
-  if (!penaltiBlock) return;
-  if (prorrogaEl && prorrogaEl.checked) {
-    penaltiBlock.style.display = '';
-  } else {
-    penaltiBlock.style.display = 'none';
-    if (penaltiEl) penaltiEl.checked = false;
-    if (penaWinBlock) penaWinBlock.style.display = 'none';
+// Mostra/oculta blocos extras conforme o empate nos palpites
+function updateExtraBlocksVisibility(matchId, aVal, bVal){
+  const isDrawNormal = aVal !== '' && bVal !== '' && Number(aVal) === Number(bVal);
+
+  const prorrogaBlock = $('prorroga-block-' + matchId);
+  if (prorrogaBlock) prorrogaBlock.style.display = isDrawNormal ? '' : 'none';
+
+  if (!isDrawNormal) {
+    // Esconder todos os blocos extras
+    const p1block = $('p1-block-' + matchId);
+    const p2block = $('p2-block-' + matchId);
+    const penblock = $('pen-block-' + matchId);
+    if (p1block) p1block.style.display = 'none';
+    if (p2block) p2block.style.display = 'none';
+    if (penblock) penblock.style.display = 'none';
+    return;
   }
-};
 
-window.togglePenaWinnerVisibility = function(matchId){
-  const penaltiEl   = $('penalti-' + matchId);
-  const penaWinBlock = $('pena-winner-block-' + matchId);
-  if (!penaWinBlock) return;
-  penaWinBlock.style.display = (penaltiEl && penaltiEl.checked) ? '' : 'none';
-};
+  // Checar se prorroga também é empate
+  const p1aEl = $('p1-a-' + matchId), p1bEl = $('p1-b-' + matchId);
+  const p2aEl = $('p2-a-' + matchId), p2bEl = $('p2-b-' + matchId);
+  const p1a = p1aEl ? p1aEl.value : '';
+  const p1b = p1bEl ? p1bEl.value : '';
+  const p2a = p2aEl ? p2aEl.value : '';
+  const p2b = p2bEl ? p2bEl.value : '';
+
+  // O placar acumulado da prorroga é o do 2º tempo prorroga
+  // Se ainda não preenchido, não mostra pênaltis
+  const prorrogaDrawn = p2a !== '' && p2b !== '' && Number(p2a) === Number(p2b);
+  const penblock = $('pen-block-' + matchId);
+  if (penblock) penblock.style.display = prorrogaDrawn ? '' : 'none';
+}
 
 window.renderPalpites = function(){
   capturePredictionDraftsFromDOM();
@@ -1854,64 +1891,72 @@ window.renderPalpites = function(){
     const points = pred ? calcPoints(pred, m) : null;
     const draft = predictionDrafts[m.id] || {};
 
-    const valA = pred ? pred.predA : (draft.predA ?? '');
-    const valB = pred ? pred.predB : (draft.predB ?? '');
     const disableInputs = Boolean(pred || isLocked || isFinal);
-    const disabled = disableInputs ? 'disabled' : '';
-    const inputEvents = disableInputs ? '' : `oninput="updatePredictionDraft('${m.id}')"`;
+    const dis = disableInputs ? 'disabled' : '';
+    const ev  = disableInputs ? '' : `oninput="updatePredictionDraft('${m.id}')"`;
 
-    // Valores salvos ou em draft para prorroga/penalti
-    const chkProrrogaVal  = pred ? (pred.predProrroga  === true || pred.predProrroga  === 'true') : Boolean(draft.predProrroga);
-    const chkPenaltiVal   = pred ? (pred.predPenalti   === true || pred.predPenalti   === 'true') : Boolean(draft.predPenalti);
-    const selPenaWinVal   = pred ? (pred.predPenaWinner || '') : (draft.predPenaWinner || '');
+    // Helper: valor salvo ou draft
+    const v = (pKey, dKey) => pred ? (pred[pKey] ?? '') : (draft[dKey] ?? draft[pKey] ?? '');
 
-    const chkProrroga  = chkProrrogaVal ? 'checked' : '';
-    const chkPenalti   = chkPenaltiVal  ? 'checked' : '';
-    const disabledStr  = disabled;
+    const valA  = v('predA',  'predA');
+    const valB  = v('predB',  'predB');
+    const v1tA  = v('pred1TA','pred1TA');
+    const v1tB  = v('pred1TB','pred1TB');
+    const v2tA  = v('pred2TA','pred2TA');
+    const v2tB  = v('pred2TB','pred2TB');
+    const v1pA  = v('pred1PA','pred1PA');
+    const v1pB  = v('pred1PB','pred1PB');
+    const v2pA  = v('pred2PA','pred2PA');
+    const v2pB  = v('pred2PB','pred2PB');
+    const vPenA = v('predPenA','predPenA');
+    const vPenB = v('predPenB','predPenB');
 
-    // Bloco de extras (prorroga + penalti), mostrado apenas se jogo nao foi palpitado ainda ou ja foi salvo
-    const penaWinnerOptions = [m.teamA, m.teamB].map(t =>
-      `<option value="${t}" ${selPenaWinVal === t ? 'selected' : ''}>${FLAG_BY_NAME[t] || ''} ${t}</option>`
-    ).join('');
+    // Visibilidade inicial dos blocos
+    const isDrawNormal = valA !== '' && valB !== '' && Number(valA) === Number(valB);
+    const isDrawProrroga = v2pA !== '' && v2pB !== '' && Number(v2pA) === Number(v2pB);
+    const showProrroga = isDrawNormal;
+    const showPen = isDrawNormal && isDrawProrroga;
 
-    const extraBlock = `
-      <div class="pred-extras" style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px;">
-        <div class="pred-extra-row" style="display:flex;align-items:center;gap:10px;">
-          <input type="checkbox" id="prorroga-${m.id}" ${chkProrroga} ${disabledStr} onchange="updatePredictionDraft('${m.id}'); togglePenaltiVisibility('${m.id}')">
-          <label for="prorroga-${m.id}" style="margin:0;text-transform:none;font-size:13px;font-weight:700;color:var(--ink);letter-spacing:0;">
-            ⏱️ Vai para prorrogação? <span style="color:var(--muted);font-weight:600;">(+1 pt)</span>
-          </label>
-        </div>
-        <div id="penalti-block-${m.id}" style="${chkProrrogaVal ? '' : 'display:none;'}">
-          <div class="pred-extra-row" style="display:flex;align-items:center;gap:10px;">
-            <input type="checkbox" id="penalti-${m.id}" ${chkPenalti} ${disabledStr} onchange="updatePredictionDraft('${m.id}'); togglePenaWinnerVisibility('${m.id}')">
-            <label for="penalti-${m.id}" style="margin:0;text-transform:none;font-size:13px;font-weight:700;color:var(--ink);letter-spacing:0;">
-              🥅 Vai para pênaltis? <span style="color:var(--muted);font-weight:600;">(+1 pt)</span>
-            </label>
+    // Construtor de linha de placar
+    const scoreRow = (idA, idB, vA, vB, label, hint='') => `
+      <div class="score-block" style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">${label}${hint ? ' <span style=\"font-weight:600;color:var(--muted);\">'+hint+'</span>' : ''}</div>
+        <div class="teams-row" style="margin-top:0;">
+          <div class="team-col" style="gap:4px;">
+            <div class="name" style="font-size:11px;">${m.teamA}</div>
+            <input type="number" min="0" max="30" class="score-box" id="${idA}" value="${vA}" ${dis} ${ev}>
           </div>
-          <div id="pena-winner-block-${m.id}" style="margin-top:8px;${chkPenaltiVal ? '' : 'display:none;'}">
-            <label for="pena-winner-${m.id}" style="margin-top:0;font-size:12px;">Quem passa nos pênaltis? <span style="color:var(--muted);font-weight:600;">(+1 pt)</span></label>
-            <select id="pena-winner-${m.id}" ${disabledStr} onchange="updatePredictionDraft('${m.id}')">
-              <option value="">Selecione...</option>
-              ${penaWinnerOptions}
-            </select>
+          <div class="versus" style="font-size:14px;">x</div>
+          <div class="team-col" style="gap:4px;">
+            <div class="name" style="font-size:11px;">${m.teamB}</div>
+            <input type="number" min="0" max="30" class="score-box" id="${idB}" value="${vB}" ${dis} ${ev}>
           </div>
         </div>
       </div>`;
 
-    // Footer de resumo do palpite salvo
+    // Bloco de prorrogação (só aparece se empate no tempo normal)
+    const prorrogaBlock = `
+      <div id="prorroga-block-${m.id}" style="${showProrroga ? '' : 'display:none;'}">
+        ${scoreRow('p1-a-'+m.id, 'p1-b-'+m.id, v1pA, v1pB, '⏱️ 1º Tempo — Prorrogação', '(+5pts)')}
+        ${scoreRow('p2-a-'+m.id, 'p2-b-'+m.id, v2pA, v2pB, '⏱️ 2º Tempo — Prorrogação (acumulado)', '(+5pts)')}
+      </div>`;
+
+    // Bloco de pênaltis (só aparece se empate na prorroga)
+    const penaltiBlock = `
+      <div id="pen-block-${m.id}" style="${showPen ? '' : 'display:none;'}">
+        ${scoreRow('pen-a-'+m.id, 'pen-b-'+m.id, vPenA, vPenB, '🥅 Disputa de Pênaltis', '(+5pts)')}
+      </div>`;
+
+    // Resumo do palpite salvo
     let footer = '';
     if (pred) {
-      const prorrogaTxt = pred.predProrroga === true || pred.predProrroga === 'true' ? 'Sim' : 'Não';
-      const penaltiTxt  = pred.predPenalti  === true || pred.predPenalti  === 'true' ? 'Sim' : 'Não';
-      let savedExtra = ` · Prorroga: ${prorrogaTxt}`;
-      if (pred.predProrroga === true || pred.predProrroga === 'true') {
-        savedExtra += ` · Pênaltis: ${penaltiTxt}`;
-        if (pred.predPenalti === true || pred.predPenalti === 'true') {
-          savedExtra += ` · Passa: ${pred.predPenaWinner || '—'}`;
-        }
-      }
-      footer = `<div class="saved-note">✅ Palpite salvo: ${m.teamA} ${pred.predA} x ${pred.predB} ${m.teamB}${savedExtra}</div>`;
+      const lines = [`✅ Placar: ${m.teamA} ${pred.predA} x ${pred.predB} ${m.teamB}`];
+      if (pred.pred1TA != null && pred.pred1TA !== '') lines.push(`1ºT: ${pred.pred1TA} x ${pred.pred1TB}`);
+      if (pred.pred2TA != null && pred.pred2TA !== '') lines.push(`2ºT: ${pred.pred2TA} x ${pred.pred2TB}`);
+      if (pred.pred1PA != null && pred.pred1PA !== '') lines.push(`Prorroga 1ºT: ${pred.pred1PA} x ${pred.pred1PB}`);
+      if (pred.pred2PA != null && pred.pred2PA !== '') lines.push(`Prorroga 2ºT: ${pred.pred2PA} x ${pred.pred2PB}`);
+      if (pred.predPenA != null && pred.predPenA !== '') lines.push(`Pênaltis: ${pred.predPenA} x ${pred.predPenB}`);
+      footer = `<div class="saved-note">${lines.join(' · ')}</div>`;
       if (isFinal && points !== null) {
         const cls = pointsBadgeClass(points);
         footer += `<div class="result-note"><span class="badge ${cls}">+${points} pt${points===1?'':'s'}</span></div>`;
@@ -1921,7 +1966,7 @@ window.renderPalpites = function(){
     } else if (isLocked) {
       footer = `<div class="saved-note">⏰ Palpites encerrados: o jogo já começou.</div>`;
     } else {
-      footer = `<div class="saved-note">Preencha o placar, marque as opções extras e salve.</div>`;
+      footer = `<div class="saved-note">Preencha o placar e os tempos. Campos de prorrogação e pênaltis aparecem automaticamente se houver empate.</div>`;
     }
 
     const statusBadge = isFinal
@@ -1940,16 +1985,20 @@ window.renderPalpites = function(){
           <div class="team-col">
             <div class="flag">${flagA}</div>
             <div class="name">${m.teamA}</div>
-            <input type="number" min="0" max="20" class="score-box" id="score-a-${m.id}" value="${valA}" ${disabled} ${inputEvents}>
+            <input type="number" min="0" max="20" class="score-box" id="score-a-${m.id}" value="${valA}" ${dis} ${ev}>
           </div>
           <div class="versus">x</div>
           <div class="team-col">
             <div class="flag">${flagB}</div>
             <div class="name">${m.teamB}</div>
-            <input type="number" min="0" max="20" class="score-box" id="score-b-${m.id}" value="${valB}" ${disabled} ${inputEvents}>
+            <input type="number" min="0" max="20" class="score-box" id="score-b-${m.id}" value="${valB}" ${dis} ${ev}>
           </div>
         </div>
-        ${extraBlock}
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:10px;">Placar por tempo (acumulado)</div>
+        ${scoreRow('t1-a-'+m.id, 't1-b-'+m.id, v1tA, v1tB, '1º Tempo', '(+5pts)')}
+        ${scoreRow('t2-a-'+m.id, 't2-b-'+m.id, v2tA, v2tB, '2º Tempo (acumulado)', '(+5pts)')}
+        ${prorrogaBlock}
+        ${penaltiBlock}
         <div class="match-meta" style="margin-top:10px;margin-bottom:0;justify-content:center;">
           ${statusBadge}
         </div>
@@ -2042,15 +2091,17 @@ window.saveAllPredictions = async function(){
       return;
     }
 
-    // Capturar extras do DOM (prorroga / penalti / penaWinner)
-    const prorrogaEl = $('prorroga-' + m.id);
-    const penaltiEl  = $('penalti-' + m.id);
-    const penaWinEl  = $('pena-winner-' + m.id);
-    const predProrroga   = prorrogaEl ? prorrogaEl.checked : Boolean(draft.predProrroga);
-    const predPenalti    = penaltiEl  ? penaltiEl.checked  : Boolean(draft.predPenalti);
-    const predPenaWinner = penaWinEl  ? penaWinEl.value    : (draft.predPenaWinner || '');
-
-    toSave.push({ match: m, predA: a, predB: b, predProrroga, predPenalti, predPenaWinner });
+    // Capturar todos os campos extras do draft atual
+    const fd = predictionDrafts[m.id] || {};
+    const getf = k => fd[k] ?? '';
+    toSave.push({
+      match: m, predA: a, predB: b,
+      pred1TA: getf('pred1TA'), pred1TB: getf('pred1TB'),
+      pred2TA: getf('pred2TA'), pred2TB: getf('pred2TB'),
+      pred1PA: getf('pred1PA'), pred1PB: getf('pred1PB'),
+      pred2PA: getf('pred2PA'), pred2PB: getf('pred2PB'),
+      predPenA: getf('predPenA'), predPenB: getf('predPenB'),
+    });
   });
 
   if (partials.length > 0) {
@@ -2090,16 +2141,24 @@ window.saveAllPredictions = async function(){
       return setDoc(doc(db, 'predictions', predId), {
         uid: currentUser.uid,
         matchId: item.match.id,
-        predA: item.predA,
-        predB: item.predB,
-        predProrroga:   item.predProrroga,
-        predPenalti:    item.predPenalti,
-        predPenaWinner: item.predPenaWinner,
+        predA: item.predA, predB: item.predB,
+        pred1TA: item.pred1TA !== '' ? Number(item.pred1TA) : null,
+        pred1TB: item.pred1TB !== '' ? Number(item.pred1TB) : null,
+        pred2TA: item.pred2TA !== '' ? Number(item.pred2TA) : null,
+        pred2TB: item.pred2TB !== '' ? Number(item.pred2TB) : null,
+        pred1PA: item.pred1PA !== '' ? Number(item.pred1PA) : null,
+        pred1PB: item.pred1PB !== '' ? Number(item.pred1PB) : null,
+        pred2PA: item.pred2PA !== '' ? Number(item.pred2PA) : null,
+        pred2PB: item.pred2PB !== '' ? Number(item.pred2PB) : null,
+        predPenA: item.predPenA !== '' ? Number(item.predPenA) : null,
+        predPenB: item.predPenB !== '' ? Number(item.predPenB) : null,
         createdAt: serverTimestamp()
       });
     }));
 
     toSave.forEach(item => delete predictionDrafts[item.match.id]);
+    // Invalida cache de predictions para forçar releitura no próximo ranking/hoje
+    cachedAllPreds = null;
     setBatchSaveMsg(`${toSave.length} palpite${toSave.length === 1 ? '' : 's'} salvo${toSave.length === 1 ? '' : 's'} com sucesso!`, 'ok');
     renderPalpites();
   } catch (e) {
@@ -2120,27 +2179,14 @@ window.savePrediction = async function(matchId){
 };
 
 // Atualiza a tela periodicamente. A trava real continua acontecendo no momento de salvar.
+// Intervalo leve: só renderiza localmente (sem getDocs) para atualizar
+// o status de trava dos palpites conforme o horário do jogo se aproxima.
+// Ranking e Hoje são atualizados via onSnapshot quando o admin altera algo.
 setInterval(() => {
   if ($('app').classList.contains('hidden')) return;
-  if (!$('tab-palpites').classList.contains('hidden')) {
-    renderPalpites();
-  }
-  if (!$('tab-historico').classList.contains('hidden')) {
-    renderHistorico();
-  }
-  if (!$('tab-ranking').classList.contains('hidden')) {
-    renderRanking();
-  }
-  if (!$('tab-ranking-dia').classList.contains('hidden')) {
-    renderRankingDia();
-  }
-  if (!$('tab-hoje').classList.contains('hidden')) {
-    renderPalpitesHoje();
-  }
-  if (!$('tab-chat').classList.contains('hidden')) {
-    renderChat();
-  }
-}, 120000);
+  if (!$('tab-palpites').classList.contains('hidden')) renderPalpites();
+  if (!$('tab-historico').classList.contains('hidden')) renderHistorico();
+}, 60000);
 
 /* ---------------- Render: Palpites de Hoje ---------------- */
 window.renderPalpitesHoje = async function(){
@@ -2157,25 +2203,15 @@ window.renderPalpitesHoje = async function(){
   list.innerHTML = `<div class="empty-state">Carregando palpites de hoje...</div>`;
 
   try {
-    const [usersSnap, predsSnap] = await Promise.all([
-      getDocs(collection(db, 'users')),
-      getDocs(collection(db, 'predictions'))
+    const [usersById, allPreds] = await Promise.all([
+      fetchCachedUsers(),
+      fetchCachedAllPreds()
     ]);
-
-    const usersById = {};
-    usersSnap.docs.forEach(d => {
-      const u = d.data();
-      usersById[d.id] = {
-        nickname: u.nickname || '(sem nome)',
-        photoBase64: u.photoBase64 || ''
-      };
-    });
 
     const todayMatchIds = new Set(todayMatches.map(m => m.id));
     const predsByMatch = {};
 
-    predsSnap.docs.forEach(d => {
-      const p = d.data();
+    allPreds.forEach(p => {
       if (!todayMatchIds.has(p.matchId)) return;
       if (!predsByMatch[p.matchId]) predsByMatch[p.matchId] = [];
       predsByMatch[p.matchId].push(p);
@@ -2424,28 +2460,49 @@ window.sendChatMessage = async function(){
 };
 
 /* ---------------- Render: Ranking ---------------- */
+async function fetchCachedUsers(){
+  if (cachedUsers) return cachedUsers;
+  const snap = await getDocs(collection(db, 'users'));
+  cachedUsers = {};
+  snap.docs.forEach(d => {
+    const u = d.data();
+    cachedUsers[d.id] = { nickname: u.nickname || '(sem nome)', photoBase64: u.photoBase64 || '' };
+  });
+  return cachedUsers;
+}
+
+async function fetchCachedAllPreds(forceRefresh=false){
+  const now = Date.now();
+  if (!forceRefresh && cachedAllPreds && (now - cacheAllPredsTs) < CACHE_ALL_PREDS_TTL) {
+    return cachedAllPreds;
+  }
+  const snap = await getDocs(collection(db, 'predictions'));
+  cachedAllPreds = snap.docs.map(d => d.data());
+  cacheAllPredsTs = now;
+  return cachedAllPreds;
+}
+
 async function buildRanking(options={}){
   const upToDateKey = options.upToDateKey || null;
   const onlyDateKey = options.onlyDateKey || null;
   const excludeMatchId = options.excludeMatchId || null;
-  const [usersSnap, predsSnap] = await Promise.all([
-    getDocs(collection(db, 'users')),
-    getDocs(collection(db, 'predictions'))
+
+  const [users, allPreds] = await Promise.all([
+    fetchCachedUsers(),
+    fetchCachedAllPreds()
   ]);
 
   const matchById = {};
   allMatches.forEach(m => matchById[m.id] = m);
 
   const predsByUser = {};
-  predsSnap.docs.forEach(d => {
-    const p = d.data();
+  allPreds.forEach(p => {
     if (!predsByUser[p.uid]) predsByUser[p.uid] = [];
     predsByUser[p.uid].push(p);
   });
 
-  const ranking = usersSnap.docs.map(d => {
-    const u = d.data();
-    const preds = predsByUser[d.id] || [];
+  const ranking = Object.entries(users).map(([uid, u]) => {
+    const preds = predsByUser[uid] || [];
     let total = 0;
     preds.forEach(p => {
       const m = matchById[p.matchId];
@@ -2454,10 +2511,10 @@ async function buildRanking(options={}){
       const matchDateKey = getMatchDateKey(m);
       if (onlyDateKey && matchDateKey !== onlyDateKey) return;
       if (upToDateKey && matchDateKey > upToDateKey) return;
-      const pts = calcPoints({predA: p.predA, predB: p.predB}, m);
+      const pts = calcPoints(p, m);
       if (pts !== null) total += pts;
     });
-    return { uid: d.id, nickname: u.nickname || '(sem nome)', photoBase64: u.photoBase64 || '', total };
+    return { uid, nickname: u.nickname, photoBase64: u.photoBase64, total };
   });
 
   ranking.sort((a,b) => {
@@ -3029,6 +3086,7 @@ window.saveProfile = async function(){
   try {
     await updateDoc(doc(db, 'users', currentUser.uid), data);
     userProfile = { ...userProfile, ...data };
+    cachedUsers = null; // invalida cache para ranking refletir novo nickname/foto
     msgEl.innerHTML = `<div class="info-msg">Perfil atualizado!</div>`;
   } catch(e) {
     console.error(e);
@@ -3113,12 +3171,23 @@ function renderAdmin(){
     const flagA = FLAG_BY_NAME[m.teamA] || '🏳️';
     const flagB = FLAG_BY_NAME[m.teamB] || '🏳️';
     const isFinal = m.status === 'finalizado';
-    const chkProrroga = m.hasProrroga ? 'checked' : '';
-    const chkPenalti  = m.hasPenalti  ? 'checked' : '';
-    const penaOpts = [m.teamA, m.teamB].map(t =>
-      `<option value="${t}" ${m.penaWinner === t ? 'selected' : ''}>${FLAG_BY_NAME[t] || ''} ${t}</option>`
-    ).join('');
     const groupLabel = m.group === '2F' ? '2ª Fase' : 'Grupo ' + m.group;
+
+    const sv = (key) => m[key] ?? '';
+
+    const adminScoreRow = (idA, idB, vA, vB, label) => `
+      <div style="margin-top:8px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;">${label}</div>
+        <div class="admin-score-row">
+          <input type="number" min="0" max="30" id="${idA}" value="${vA}">
+          <span style="font-family:'Anton',sans-serif;color:var(--muted);">x</span>
+          <input type="number" min="0" max="30" id="${idB}" value="${vB}">
+        </div>
+      </div>`;
+
+    const hasP = m.score1PA != null;
+    const hasPen = m.scorePenA != null;
+
     return `
       <div class="admin-match-row">
         <div class="admin-match-top">
@@ -3128,31 +3197,19 @@ function renderAdmin(){
         <div class="admin-match-teams">
           <span>${flagA} ${m.teamA}</span><span style="color:var(--muted);">x</span><span>${flagB} ${m.teamB}</span>
         </div>
-        <div class="admin-score-row">
-          <input type="number" min="0" max="20" id="admin-score-a-${m.id}" value="${m.scoreA ?? ''}">
-          <span style="font-family:'Anton',sans-serif;color:var(--muted);">x</span>
-          <input type="number" min="0" max="20" id="admin-score-b-${m.id}" value="${m.scoreB ?? ''}">
+        ${adminScoreRow('admin-score-a-'+m.id, 'admin-score-b-'+m.id, sv('scoreA'), sv('scoreB'), '⚽ Placar final (tempo normal)')}
+        ${adminScoreRow('admin-1t-a-'+m.id, 'admin-1t-b-'+m.id, sv('score1TA'), sv('score1TB'), '1º Tempo')}
+        ${adminScoreRow('admin-2t-a-'+m.id, 'admin-2t-b-'+m.id, sv('score2TA'), sv('score2TB'), '2º Tempo (acumulado)')}
+        <div id="admin-prorroga-block-${m.id}" style="${hasP ? '' : 'display:none;'}">
+          ${adminScoreRow('admin-1p-a-'+m.id, 'admin-1p-b-'+m.id, sv('score1PA'), sv('score1PB'), '⏱️ Prorrogação — 1º Tempo')}
+          ${adminScoreRow('admin-2p-a-'+m.id, 'admin-2p-b-'+m.id, sv('score2PA'), sv('score2PB'), '⏱️ Prorrogação — 2º Tempo (acumulado)')}
         </div>
-        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="checkbox" id="admin-prorroga-${m.id}" ${chkProrroga}
-              onchange="adminTogglePenaltiBlock('${m.id}')">
-            <label for="admin-prorroga-${m.id}" style="margin:0;font-size:12px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--ink);">⏱️ Houve prorrogação?</label>
-          </div>
-          <div id="admin-penalti-block-${m.id}" style="${m.hasProrroga ? '' : 'display:none;'}">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-              <input type="checkbox" id="admin-penalti-${m.id}" ${chkPenalti}
-                onchange="adminTogglePenaWinnerBlock('${m.id}')">
-              <label for="admin-penalti-${m.id}" style="margin:0;font-size:12px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--ink);">🥅 Houve pênaltis?</label>
-            </div>
-            <div id="admin-pena-winner-block-${m.id}" style="${m.hasPenalti ? '' : 'display:none;'}">
-              <label for="admin-pena-winner-${m.id}" style="margin-top:0;font-size:11px;">Quem passou nos pênaltis?</label>
-              <select id="admin-pena-winner-${m.id}">
-                <option value="">Selecione...</option>
-                ${penaOpts}
-              </select>
-            </div>
-          </div>
+        <div id="admin-pen-block-${m.id}" style="${hasPen ? '' : 'display:none;'}">
+          ${adminScoreRow('admin-pen-a-'+m.id, 'admin-pen-b-'+m.id, sv('scorePenA'), sv('scorePenB'), '🥅 Pênaltis')}
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="adminToggleProrrogaBlock('${m.id}')">+ Prorrogação</button>
+          <button class="btn btn-ghost btn-sm" onclick="adminTogglePenBlock('${m.id}')">+ Pênaltis</button>
         </div>
         <div class="admin-actions">
           <button class="btn btn-primary btn-sm" onclick="finalizeMatch('${m.id}')">${isFinal ? 'Atualizar resultado' : 'Salvar resultado'}</button>
@@ -3162,58 +3219,72 @@ function renderAdmin(){
   }).join('');
 }
 
-window.adminTogglePenaltiBlock = function(matchId){
-  const prorrogaEl = $('admin-prorroga-' + matchId);
-  const block = $('admin-penalti-block-' + matchId);
-  const penaltiEl = $('admin-penalti-' + matchId);
-  const penaWinBlock = $('admin-pena-winner-block-' + matchId);
+window.adminToggleProrrogaBlock = function(matchId){
+  const block = $('admin-prorroga-block-' + matchId);
   if (!block) return;
-  if (prorrogaEl && prorrogaEl.checked) {
-    block.style.display = '';
-  } else {
-    block.style.display = 'none';
-    if (penaltiEl) penaltiEl.checked = false;
-    if (penaWinBlock) penaWinBlock.style.display = 'none';
-  }
+  block.style.display = block.style.display === 'none' ? '' : 'none';
 };
 
-window.adminTogglePenaWinnerBlock = function(matchId){
-  const penaltiEl = $('admin-penalti-' + matchId);
-  const penaWinBlock = $('admin-pena-winner-block-' + matchId);
-  if (!penaWinBlock) return;
-  penaWinBlock.style.display = (penaltiEl && penaltiEl.checked) ? '' : 'none';
+window.adminTogglePenBlock = function(matchId){
+  const block = $('admin-pen-block-' + matchId);
+  if (!block) return;
+  block.style.display = block.style.display === 'none' ? '' : 'none';
 };
+
+function adminGetScore(idA, idB){
+  const elA = $(idA), elB = $(idB);
+  const a = elA ? elA.value : '';
+  const b = elB ? elB.value : '';
+  if (a === '' || b === '') return null;
+  return { a: Number(a), b: Number(b) };
+}
 
 window.finalizeMatch = async function(matchId){
-  const a = $('admin-score-a-' + matchId).value;
-  const b = $('admin-score-b-' + matchId).value;
-  if (a === '' || b === '' || isNaN(a) || isNaN(b)) {
-    alert('Informe os dois placares.');
+  const main = adminGetScore('admin-score-a-'+matchId, 'admin-score-b-'+matchId);
+  if (!main) { alert('Informe o placar do tempo normal.'); return; }
+
+  const t1 = adminGetScore('admin-1t-a-'+matchId, 'admin-1t-b-'+matchId);
+  const t2 = adminGetScore('admin-2t-a-'+matchId, 'admin-2t-b-'+matchId);
+
+  if (!t1 || !t2) { alert('Informe os placares do 1º e 2º tempo.'); return; }
+
+  // Validar soma dos tempos = placar final
+  if (t2.a !== main.a || t2.b !== main.b) {
+    alert(`O placar acumulado do 2º tempo (${t2.a} x ${t2.b}) deve ser igual ao placar final (${main.a} x ${main.b}).`);
     return;
   }
 
-  const prorrogaEl = $('admin-prorroga-' + matchId);
-  const penaltiEl  = $('admin-penalti-'  + matchId);
-  const penaWinEl  = $('admin-pena-winner-' + matchId);
+  const prorrogaBlock = $('admin-prorroga-block-'+matchId);
+  const hasProrroga = prorrogaBlock && prorrogaBlock.style.display !== 'none';
 
-  const hasProrroga = prorrogaEl ? prorrogaEl.checked : false;
-  const hasPenalti  = (hasProrroga && penaltiEl) ? penaltiEl.checked : false;
-  const penaWinner  = (hasPenalti && penaWinEl) ? penaWinEl.value : '';
-
-  if (hasPenalti && !penaWinner) {
-    alert('Selecione qual time passou nos pênaltis.');
-    return;
+  let p1 = null, p2 = null;
+  if (hasProrroga) {
+    p1 = adminGetScore('admin-1p-a-'+matchId, 'admin-1p-b-'+matchId);
+    p2 = adminGetScore('admin-2p-a-'+matchId, 'admin-2p-b-'+matchId);
+    if (!p1 || !p2) { alert('Preencha os dois tempos da prorrogação.'); return; }
   }
 
-  await updateDoc(doc(db, 'matches', matchId), {
-    scoreA: Number(a),
-    scoreB: Number(b),
-    hasProrroga,
-    hasPenalti,
-    penaWinner: penaWinner || null,
+  const penBlock = $('admin-pen-block-'+matchId);
+  const hasPenalti = penBlock && penBlock.style.display !== 'none';
+
+  let pen = null;
+  if (hasPenalti) {
+    pen = adminGetScore('admin-pen-a-'+matchId, 'admin-pen-b-'+matchId);
+    if (!pen) { alert('Preencha o placar dos pênaltis.'); return; }
+  }
+
+  const payload = {
+    scoreA: main.a, scoreB: main.b,
+    score1TA: t1.a, score1TB: t1.b,
+    score2TA: t2.a, score2TB: t2.b,
+    score1PA: p1 ? p1.a : null, score1PB: p1 ? p1.b : null,
+    score2PA: p2 ? p2.a : null, score2PB: p2 ? p2.b : null,
+    scorePenA: pen ? pen.a : null, scorePenB: pen ? pen.b : null,
     status: 'finalizado',
     finalizedAt: serverTimestamp()
-  });
+  };
+
+  await updateDoc(doc(db, 'matches', matchId), payload);
 };
 
 window.deleteMatch = async function(matchId){
