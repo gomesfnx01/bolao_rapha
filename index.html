@@ -569,12 +569,21 @@
   .rules-modal-card{
     width:100%;
     max-width:430px;
+    max-height:88vh;
+    display:flex;
+    flex-direction:column;
     background:#fff;
     border:2px solid var(--amber);
     border-radius:18px;
     padding:18px;
     box-shadow:0 18px 48px rgba(0,0,0,.35);
     animation:winnerPop .28s ease-out both;
+  }
+  .rules-modal-body{
+    overflow-y:auto;
+    flex:1;
+    margin-top:4px;
+    padding-right:4px;
   }
   .rules-modal-title{
     font-family:'Anton',sans-serif;
@@ -1158,6 +1167,7 @@
     <div class="rules-modal-card">
       <div class="rules-modal-title">📘 Regras do bolão</div>
       <div class="section-sub" style="margin-bottom:8px;">Pontuação, ranking do dia e música escolhida.</div>
+      <div class="rules-modal-body">
       <div class="rules-list">
         <div class="rule-item">
           <div class="rule-icon">5</div>
@@ -1181,7 +1191,7 @@
         </div>
         <div class="rule-item">
           <div class="rule-icon">🥅</div>
-          <div class="rule-text">Pênaltis: palpite o placar exato da disputa (ex: 5 x 3).<br><span>Disponível somente se você palpitar empate nos dois tempos da prorrogação.</span></div>
+          <div class="rule-text">Pênaltis: palpite o placar da disputa (ex: 5 x 3).<br><span>Vale 5 pts (placar exato), 2 pts (acertou quem passou) ou 1 pt (acertou um lado). Disponível somente se você palpitar empate nos dois tempos da prorrogação.</span></div>
         </div>
         <div class="rule-item">
           <div class="rule-icon">🎵</div>
@@ -1192,7 +1202,8 @@
           <div class="rule-text">Empate no 1º lugar do dia: quem salvar primeiro vence.<br><span>Todos os empatados no topo recebem a chance de escolher.</span></div>
         </div>
       </div>
-      <div style="margin-top:14px;">
+      </div><!-- /rules-modal-body -->
+      <div style="margin-top:14px;flex-shrink:0;">
         <button class="btn btn-primary" onclick="closeRulesModal()">Entendi</button>
       </div>
     </div>
