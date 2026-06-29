@@ -1995,8 +1995,8 @@ window.renderPalpites = function(){
           </div>
         </div>
         <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:10px;">Placar por tempo (acumulado)</div>
-        ${scoreRow('t1-a-'+m.id, 't1-b-'+m.id, v1tA, v1tB, '1º Tempo', '(+5pts)')}
-        ${scoreRow('t2-a-'+m.id, 't2-b-'+m.id, v2tA, v2tB, '2º Tempo (acumulado)', '(+5pts)')}
+        ${scoreRow('t1-a-'+m.id, 't1-b-'+m.id, v1tA, v1tB, '1º Tempo', '')}
+        ${scoreRow('t2-a-'+m.id, 't2-b-'+m.id, v2tA, v2tB, '2º Tempo (acumulado)', '')}
         ${prorrogaBlock}
         ${penaltiBlock}
         <div class="match-meta" style="margin-top:10px;margin-bottom:0;justify-content:center;">
@@ -2060,6 +2060,7 @@ window.saveAllPredictions = async function(){
   const matches = allMatches.filter(m => getMatchDateKey(m) === todayKey);
   const toSave = [];
   const partials = [];
+  const invalid = [];
   const locked = [];
 
   matches.forEach(m => {
@@ -2094,6 +2095,28 @@ window.saveAllPredictions = async function(){
     // Capturar todos os campos extras do draft atual
     const fd = predictionDrafts[m.id] || {};
     const getf = k => fd[k] ?? '';
+
+    // Validar: se o usuário preencheu os tempos, o 2ºT acumulado deve bater com o placar final
+    const t1a = getf('pred1TA'), t1b = getf('pred1TB');
+    const t2a = getf('pred2TA'), t2b = getf('pred2TB');
+    const temposParcialmentePreenchidos = [t1a, t1b, t2a, t2b].some(v => v !== '');
+    const temposTodosPreenchidos = [t1a, t1b, t2a, t2b].every(v => v !== '');
+
+    if (temposParcialmentePreenchidos && !temposTodosPreenchidos) {
+      partials.push(`${m.teamA} x ${m.teamB} — preencha os dois tempos (1º e 2º)`);
+      return;
+    }
+
+    if (temposTodosPreenchidos) {
+      // O 2º tempo acumulado deve ser igual ao placar final
+      if (Number(t2a) !== a || Number(t2b) !== b) {
+        invalid.push(
+          `${m.teamA} x ${m.teamB} — o placar acumulado do 2º tempo (${t2a} x ${t2b}) não bate com o placar final (${a} x ${b}). O 2º tempo deve mostrar o placar total ao fim dos 90 minutos.`
+        );
+        return;
+      }
+    }
+
     toSave.push({
       match: m, predA: a, predB: b,
       pred1TA: getf('pred1TA'), pred1TB: getf('pred1TB'),
@@ -2103,6 +2126,12 @@ window.saveAllPredictions = async function(){
       predPenA: getf('predPenA'), predPenB: getf('predPenB'),
     });
   });
+
+  if (invalid.length > 0) {
+    alert('Atenção — soma dos tempos incorreta:\n\n' + invalid.join('\n'));
+    setBatchSaveMsg('Corrija os placares dos tempos antes de salvar.', 'err');
+    return;
+  }
 
   if (partials.length > 0) {
     alert('Há jogos com placar incompleto ou inválido:\n\n' + partials.join('\n') + '\n\nPreencha os dois lados do placar ou limpe os campos.');
