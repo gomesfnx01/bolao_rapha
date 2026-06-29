@@ -1937,14 +1937,14 @@ window.renderPalpites = function(){
     // Bloco de prorrogação (só aparece se empate no tempo normal)
     const prorrogaBlock = `
       <div id="prorroga-block-${m.id}" style="${showProrroga ? '' : 'display:none;'}">
-        ${scoreRow('p1-a-'+m.id, 'p1-b-'+m.id, v1pA, v1pB, '⏱️ 1º Tempo — Prorrogação', '(+5pts)')}
-        ${scoreRow('p2-a-'+m.id, 'p2-b-'+m.id, v2pA, v2pB, '⏱️ 2º Tempo — Prorrogação (acumulado)', '(+5pts)')}
+        ${scoreRow('p1-a-'+m.id, 'p1-b-'+m.id, v1pA, v1pB, '⏱️ 1º Tempo — Prorrogação', '')}
+        ${scoreRow('p2-a-'+m.id, 'p2-b-'+m.id, v2pA, v2pB, '⏱️ 2º Tempo — Prorrogação (acumulado)', '')}
       </div>`;
 
     // Bloco de pênaltis (só aparece se empate na prorroga)
     const penaltiBlock = `
       <div id="pen-block-${m.id}" style="${showPen ? '' : 'display:none;'}">
-        ${scoreRow('pen-a-'+m.id, 'pen-b-'+m.id, vPenA, vPenB, '🥅 Disputa de Pênaltis', '(+5pts)')}
+        ${scoreRow('pen-a-'+m.id, 'pen-b-'+m.id, vPenA, vPenB, '🥅 Disputa de Pênaltis', '')}
       </div>`;
 
     // Resumo do palpite salvo
