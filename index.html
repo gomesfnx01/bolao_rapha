@@ -1183,7 +1183,7 @@
         </div>
         <div class="rule-item">
           <div class="rule-icon">📋</div>
-          <div class="rule-text">Palpite obrigatório: placar final + 1º e 2º tempo (acumulado).<br><span>O 2º tempo deve bater com o placar final. Ex: se o jogo termina 2 x 1, o 2º tempo acumulado deve ser 2 x 1.</span></div>
+          <div class="rule-text">Palpite o placar final e o placar do 1º tempo.<br><span>O 1º tempo é opcional mas vale pontos. O placar final é obrigatório.</span></div>
         </div>
         <div class="rule-item">
           <div class="rule-icon">⏱️</div>
@@ -1738,10 +1738,6 @@ function calcPoints(pred, match){
   if (match.score1TA != null && match.score1TB != null && pred.pred1TA != null && pred.pred1TB != null)
     points += scoreBlock(pred.pred1TA, pred.pred1TB, match.score1TA, match.score1TB);
 
-  // 2º tempo normal (placar acumulado)
-  if (match.score2TA != null && match.score2TB != null && pred.pred2TA != null && pred.pred2TB != null)
-    points += scoreBlock(pred.pred2TA, pred.pred2TB, match.score2TA, match.score2TB);
-
   // 1º tempo prorrogação
   if (match.score1PA != null && match.score1PB != null && pred.pred1PA != null && pred.pred1PB != null)
     points += scoreBlock(pred.pred1PA, pred.pred1PB, match.score1PA, match.score1PB);
@@ -1798,7 +1794,6 @@ function capturePredictionDraftsFromDOM(){
 
     const draft = predictionDrafts[matchId] || {};
     const t1 = readScorePair('t1-a-'+matchId, 't1-b-'+matchId, draft, 'pred1TA', 'pred1TB');
-    const t2 = readScorePair('t2-a-'+matchId, 't2-b-'+matchId, draft, 'pred2TA', 'pred2TB');
     const p1 = readScorePair('p1-a-'+matchId, 'p1-b-'+matchId, draft, 'pred1PA', 'pred1PB');
     const p2 = readScorePair('p2-a-'+matchId, 'p2-b-'+matchId, draft, 'pred2PA', 'pred2PB');
     const pen = readScorePair('pen-a-'+matchId, 'pen-b-'+matchId, draft, 'predPenA', 'predPenB');
@@ -1806,7 +1801,6 @@ function capturePredictionDraftsFromDOM(){
     predictionDrafts[matchId] = {
       predA: a, predB: b,
       pred1TA: t1.a, pred1TB: t1.b,
-      pred2TA: t2.a, pred2TB: t2.b,
       pred1PA: p1.a, pred1PB: p1.b,
       pred2PA: p2.a, pred2PB: p2.b,
       predPenA: pen.a, predPenB: pen.b,
@@ -1829,7 +1823,6 @@ window.updatePredictionDraft = function(matchId){
 
   const draft = predictionDrafts[matchId] || {};
   const t1 = readScorePair('t1-a-'+matchId, 't1-b-'+matchId, draft, 'pred1TA', 'pred1TB');
-  const t2 = readScorePair('t2-a-'+matchId, 't2-b-'+matchId, draft, 'pred2TA', 'pred2TB');
   const p1 = readScorePair('p1-a-'+matchId, 'p1-b-'+matchId, draft, 'pred1PA', 'pred1PB');
   const p2 = readScorePair('p2-a-'+matchId, 'p2-b-'+matchId, draft, 'pred2PA', 'pred2PB');
   const pen = readScorePair('pen-a-'+matchId, 'pen-b-'+matchId, draft, 'predPenA', 'predPenB');
@@ -1837,7 +1830,6 @@ window.updatePredictionDraft = function(matchId){
   predictionDrafts[matchId] = {
     predA: a, predB: b,
     pred1TA: t1.a, pred1TB: t1.b,
-    pred2TA: t2.a, pred2TB: t2.b,
     pred1PA: p1.a, pred1PB: p1.b,
     pred2PA: p2.a, pred2PB: p2.b,
     predPenA: pen.a, predPenB: pen.b,
@@ -1913,8 +1905,6 @@ window.renderPalpites = function(){
     const valB  = v('predB',  'predB');
     const v1tA  = v('pred1TA','pred1TA');
     const v1tB  = v('pred1TB','pred1TB');
-    const v2tA  = v('pred2TA','pred2TA');
-    const v2tB  = v('pred2TB','pred2TB');
     const v1pA  = v('pred1PA','pred1PA');
     const v1pB  = v('pred1PB','pred1PB');
     const v2pA  = v('pred2PA','pred2PA');
@@ -1963,7 +1953,6 @@ window.renderPalpites = function(){
     if (pred) {
       const lines = [`✅ Placar: ${m.teamA} ${pred.predA} x ${pred.predB} ${m.teamB}`];
       if (pred.pred1TA != null && pred.pred1TA !== '') lines.push(`1ºT: ${pred.pred1TA} x ${pred.pred1TB}`);
-      if (pred.pred2TA != null && pred.pred2TA !== '') lines.push(`2ºT: ${pred.pred2TA} x ${pred.pred2TB}`);
       if (pred.pred1PA != null && pred.pred1PA !== '') lines.push(`Prorroga 1ºT: ${pred.pred1PA} x ${pred.pred1PB}`);
       if (pred.pred2PA != null && pred.pred2PA !== '') lines.push(`Prorroga 2ºT: ${pred.pred2PA} x ${pred.pred2PB}`);
       if (pred.predPenA != null && pred.predPenA !== '') lines.push(`Pênaltis: ${pred.predPenA} x ${pred.predPenB}`);
@@ -2005,9 +1994,8 @@ window.renderPalpites = function(){
             <input type="number" min="0" max="20" class="score-box" id="score-b-${m.id}" value="${valB}" ${dis} ${ev}>
           </div>
         </div>
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:10px;">Placar por tempo (acumulado)</div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:10px;">Placar do 1º tempo</div>
         ${scoreRow('t1-a-'+m.id, 't1-b-'+m.id, v1tA, v1tB, '1º Tempo', '')}
-        ${scoreRow('t2-a-'+m.id, 't2-b-'+m.id, v2tA, v2tB, '2º Tempo (acumulado)', '')}
         ${prorrogaBlock}
         ${penaltiBlock}
         <div class="match-meta" style="margin-top:10px;margin-bottom:0;justify-content:center;">
@@ -2108,30 +2096,11 @@ window.saveAllPredictions = async function(){
     const getf = k => fd[k] ?? '';
 
     // Validar: se o usuário preencheu os tempos, o 2ºT acumulado deve bater com o placar final
-    const t1a = getf('pred1TA'), t1b = getf('pred1TB');
-    const t2a = getf('pred2TA'), t2b = getf('pred2TB');
-    const temposParcialmentePreenchidos = [t1a, t1b, t2a, t2b].some(v => v !== '');
-    const temposTodosPreenchidos = [t1a, t1b, t2a, t2b].every(v => v !== '');
-
-    if (temposParcialmentePreenchidos && !temposTodosPreenchidos) {
-      partials.push(`${m.teamA} x ${m.teamB} — preencha os dois tempos (1º e 2º)`);
-      return;
-    }
-
-    if (temposTodosPreenchidos) {
-      // O 2º tempo acumulado deve ser igual ao placar final
-      if (Number(t2a) !== a || Number(t2b) !== b) {
-        invalid.push(
-          `${m.teamA} x ${m.teamB} — o placar acumulado do 2º tempo (${t2a} x ${t2b}) não bate com o placar final (${a} x ${b}). O 2º tempo deve mostrar o placar total ao fim dos 90 minutos.`
-        );
-        return;
-      }
-    }
+    // Sem validação adicional — 1º tempo é opcional e independente do placar final
 
     toSave.push({
       match: m, predA: a, predB: b,
       pred1TA: getf('pred1TA'), pred1TB: getf('pred1TB'),
-      pred2TA: getf('pred2TA'), pred2TB: getf('pred2TB'),
       pred1PA: getf('pred1PA'), pred1PB: getf('pred1PB'),
       pred2PA: getf('pred2PA'), pred2PB: getf('pred2PB'),
       predPenA: getf('predPenA'), predPenB: getf('predPenB'),
@@ -2184,8 +2153,6 @@ window.saveAllPredictions = async function(){
         predA: item.predA, predB: item.predB,
         pred1TA: item.pred1TA !== '' ? Number(item.pred1TA) : null,
         pred1TB: item.pred1TB !== '' ? Number(item.pred1TB) : null,
-        pred2TA: item.pred2TA !== '' ? Number(item.pred2TA) : null,
-        pred2TB: item.pred2TB !== '' ? Number(item.pred2TB) : null,
         pred1PA: item.pred1PA !== '' ? Number(item.pred1PA) : null,
         pred1PB: item.pred1PB !== '' ? Number(item.pred1PB) : null,
         pred2PA: item.pred2PA !== '' ? Number(item.pred2PA) : null,
@@ -3239,7 +3206,6 @@ function renderAdmin(){
         </div>
         ${adminScoreRow('admin-score-a-'+m.id, 'admin-score-b-'+m.id, sv('scoreA'), sv('scoreB'), '⚽ Placar final (tempo normal)')}
         ${adminScoreRow('admin-1t-a-'+m.id, 'admin-1t-b-'+m.id, sv('score1TA'), sv('score1TB'), '1º Tempo')}
-        ${adminScoreRow('admin-2t-a-'+m.id, 'admin-2t-b-'+m.id, sv('score2TA'), sv('score2TB'), '2º Tempo (acumulado)')}
         <div id="admin-prorroga-block-${m.id}" style="${hasP ? '' : 'display:none;'}">
           ${adminScoreRow('admin-1p-a-'+m.id, 'admin-1p-b-'+m.id, sv('score1PA'), sv('score1PB'), '⏱️ Prorrogação — 1º Tempo')}
           ${adminScoreRow('admin-2p-a-'+m.id, 'admin-2p-b-'+m.id, sv('score2PA'), sv('score2PB'), '⏱️ Prorrogação — 2º Tempo (acumulado)')}
@@ -3284,15 +3250,7 @@ window.finalizeMatch = async function(matchId){
   if (!main) { alert('Informe o placar do tempo normal.'); return; }
 
   const t1 = adminGetScore('admin-1t-a-'+matchId, 'admin-1t-b-'+matchId);
-  const t2 = adminGetScore('admin-2t-a-'+matchId, 'admin-2t-b-'+matchId);
-
-  if (!t1 || !t2) { alert('Informe os placares do 1º e 2º tempo.'); return; }
-
-  // Validar soma dos tempos = placar final
-  if (t2.a !== main.a || t2.b !== main.b) {
-    alert(`O placar acumulado do 2º tempo (${t2.a} x ${t2.b}) deve ser igual ao placar final (${main.a} x ${main.b}).`);
-    return;
-  }
+  if (!t1) { alert('Informe o placar do 1º tempo.'); return; }
 
   const prorrogaBlock = $('admin-prorroga-block-'+matchId);
   const hasProrroga = prorrogaBlock && prorrogaBlock.style.display !== 'none';
@@ -3316,7 +3274,6 @@ window.finalizeMatch = async function(matchId){
   const payload = {
     scoreA: main.a, scoreB: main.b,
     score1TA: t1.a, score1TB: t1.b,
-    score2TA: t2.a, score2TB: t2.b,
     score1PA: p1 ? p1.a : null, score1PB: p1 ? p1.b : null,
     score2PA: p2 ? p2.a : null, score2PB: p2 ? p2.b : null,
     scorePenA: pen ? pen.a : null, scorePenB: pen ? pen.b : null,
