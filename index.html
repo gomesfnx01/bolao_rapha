@@ -1187,7 +1187,7 @@
         </div>
         <div class="rule-item">
           <div class="rule-icon">⏱️</div>
-          <div class="rule-text">Prorrogação aparece automaticamente se você palpitar empate.<br><span>Palpite os dois tempos da prorrogação (acumulados). Se também empatar, libera o bloco de pênaltis.</span></div>
+          <div class="rule-text">Prorrogação aparece se você palpitar empate no placar final.<br><span>Digite o placar acumulado desde o início do jogo (ex: jogo em 2x2, após 1ºT da prorroga fica 2x3 → digite 2x3). A pontuação compara o parcial de cada tempo isoladamente. Se o acumulado final da prorroga também for empate, libera pênaltis.</span></div>
         </div>
         <div class="rule-item">
           <div class="rule-icon">🥅</div>
@@ -1738,11 +1738,10 @@ function calcPoints(pred, match){
   if (match.score1TA != null && match.score1TB != null && pred.pred1TA != null && pred.pred1TB != null)
     points += scoreBlock(pred.pred1TA, pred.pred1TB, match.score1TA, match.score1TB);
 
-  // 1º tempo prorrogação
+  // Prorrogação e pênaltis — mesma lógica do placar geral (5/2/1)
   if (match.score1PA != null && match.score1PB != null && pred.pred1PA != null && pred.pred1PB != null)
     points += scoreBlock(pred.pred1PA, pred.pred1PB, match.score1PA, match.score1PB);
 
-  // 2º tempo prorrogação (placar acumulado da prorroga)
   if (match.score2PA != null && match.score2PB != null && pred.pred2PA != null && pred.pred2PB != null)
     points += scoreBlock(pred.pred2PA, pred.pred2PB, match.score2PA, match.score2PB);
 
@@ -1938,8 +1937,8 @@ window.renderPalpites = function(){
     // Bloco de prorrogação (só aparece se empate no tempo normal)
     const prorrogaBlock = `
       <div id="prorroga-block-${m.id}" style="${showProrroga ? '' : 'display:none;'}">
-        ${scoreRow('p1-a-'+m.id, 'p1-b-'+m.id, v1pA, v1pB, '⏱️ 1º Tempo — Prorrogação', '')}
-        ${scoreRow('p2-a-'+m.id, 'p2-b-'+m.id, v2pA, v2pB, '⏱️ 2º Tempo — Prorrogação (acumulado)', '')}
+        ${scoreRow('p1-a-'+m.id, 'p1-b-'+m.id, v1pA, v1pB, '⏱️ Prorrogação — Após 1º Tempo (acumulado)', '')}
+        ${scoreRow('p2-a-'+m.id, 'p2-b-'+m.id, v2pA, v2pB, '⏱️ Prorrogação — Após 2º Tempo (acumulado)', '')}
       </div>`;
 
     // Bloco de pênaltis (só aparece se empate na prorroga)
@@ -2895,8 +2894,6 @@ window.saveDailyMusicChoice = async function(){
         leaderUid: currentUser.uid,
         leaderNickname: userProfile.nickname || currentUser.email || '(sem nome)',
         requestText,
-        updatedAt: serverTimestamp(),
-        createdAt: serverTimestamp()
       });
     });
 
@@ -3207,8 +3204,8 @@ function renderAdmin(){
         ${adminScoreRow('admin-score-a-'+m.id, 'admin-score-b-'+m.id, sv('scoreA'), sv('scoreB'), '⚽ Placar final (tempo normal)')}
         ${adminScoreRow('admin-1t-a-'+m.id, 'admin-1t-b-'+m.id, sv('score1TA'), sv('score1TB'), '1º Tempo')}
         <div id="admin-prorroga-block-${m.id}" style="${hasP ? '' : 'display:none;'}">
-          ${adminScoreRow('admin-1p-a-'+m.id, 'admin-1p-b-'+m.id, sv('score1PA'), sv('score1PB'), '⏱️ Prorrogação — 1º Tempo')}
-          ${adminScoreRow('admin-2p-a-'+m.id, 'admin-2p-b-'+m.id, sv('score2PA'), sv('score2PB'), '⏱️ Prorrogação — 2º Tempo (acumulado)')}
+          ${adminScoreRow('admin-1p-a-'+m.id, 'admin-1p-b-'+m.id, sv('score1PA'), sv('score1PB'), '⏱️ Prorrogação — Após 1º Tempo (acumulado)')}
+          ${adminScoreRow('admin-2p-a-'+m.id, 'admin-2p-b-'+m.id, sv('score2PA'), sv('score2PB'), '⏱️ Prorrogação — Após 2º Tempo (acumulado)')}
         </div>
         <div id="admin-pen-block-${m.id}" style="${hasPen ? '' : 'display:none;'}">
           ${adminScoreRow('admin-pen-a-'+m.id, 'admin-pen-b-'+m.id, sv('scorePenA'), sv('scorePenB'), '🥅 Pênaltis')}
@@ -3295,9 +3292,9 @@ window.deleteMatch = async function(matchId){
    Depois altere abaixo o nome, artista e caminho se quiser.
    ================================================================ */
 const LOCAL_MUSIC = {
-  title: 'comigo',
-  artist: 'Leonardo Gonçalves, Kemuel',
-  src: './audio/comigo.mp3'
+  title: 'Galinha Preta',
+  artist: 'Música de Trabalho',
+  src: './audio/trabalhar.mp3'
 };
 
 let localMusicAudio = null;
