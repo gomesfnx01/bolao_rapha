@@ -1291,7 +1291,7 @@ let userProfile = null;
 let allMatches = [];           // [{id, group, teamA, teamB, datetime, scoreA, scoreB, status}]
 let myPredictions = {};        // matchId -> {predA, predB}
 let predictionDrafts = {};     // matchId -> {predA, predB} temporário enquanto o usuário preenche
-let dailyMusicSelection = null; // escolha de música do 1º do ranking do dia anterior
+let dailyMusicSelections = []; // músicas salvas do dia (um doc por vencedor)
 let dailyMusicDateKey = '';
 let chatMessages = [];
 let chatUnreadCount = 0;
@@ -1548,7 +1548,7 @@ function refreshDailyMusicSubscription(){
       unsubDailyMusic = null;
     }
     dailyMusicDateKey = '';
-    dailyMusicSelection = null;
+    dailyMusicSelections = [];
     updateTopbarMusicChoice();
     if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
     return;
@@ -1563,11 +1563,16 @@ function refreshDailyMusicSubscription(){
   if (unsubDailyMusic) unsubDailyMusic();
 
   dailyMusicDateKey = nextDateKey;
-  dailyMusicSelection = null;
+  dailyMusicSelections = [];
   updateTopbarMusicChoice();
 
-  unsubDailyMusic = onSnapshot(doc(db, 'musicSelections', dailyMusicDateKey), snap => {
-    dailyMusicSelection = snap.exists() ? snap.data() : null;
+  // Query: todos os docs cujo ID começa com dateKey_ (um por vencedor)
+  const qMusic = query(
+    collection(db, 'musicSelections'),
+    where('dateKey', '==', dailyMusicDateKey)
+  );
+  unsubDailyMusic = onSnapshot(qMusic, snap => {
+    dailyMusicSelections = snap.docs.map(d => d.data());
     updateTopbarMusicChoice();
     if (!$('tab-ranking').classList.contains('hidden')) renderRanking();
     checkWinnerMusicNotice();
@@ -1679,7 +1684,7 @@ function updateTopbarMusicChoice(){
 
   label.textContent = `Música 1° ranking do dia ${formatDateKeyBR(dateKey)}`;
 
-  const requestText = dailyMusicSelection?.requestText?.trim();
+  const requestText = dailyMusicSelections[0]?.requestText?.trim();
   if (requestText) {
     textEl.textContent = `Pedido: ${requestText}`;
     show(textEl);
@@ -2697,60 +2702,73 @@ function renderDailyWinnerSummary(topLeaders, dateKey, selectionForDate=null, ra
     return;
   }
 
-  const selection = selectionForDate || (dailyMusicDateKey === dateKey ? dailyMusicSelection : null);
-  const savedText = selection?.requestText?.trim() || '';
-  const savedBy = selection?.leaderNickname || '';
+  const selections = selectionForDate
+    ? (Array.isArray(selectionForDate) ? selectionForDate : [selectionForDate])
+    : (dailyMusicDateKey === dateKey ? dailyMusicSelections : []);
+
   const isTie = leaders.length > 1;
-  const leaderNames = leaders.map(leader => escapeHtml(leader.nickname)).join(', ');
-  const isMyTurn = leaders.some(leader => leader.uid === currentUser.uid);
+  const leaderNames = leaders.map(l => escapeHtml(l.nickname)).join(', ');
+  const isMyTurn = leaders.some(l => l.uid === currentUser.uid);
+  const iAlreadySaved = selections.some(s => s.leaderUid === currentUser.uid);
 
   let title = `🏆 ${isTie ? 'Empate no topo' : 'Vencedor do dia'} ${dateLabel}`;
   let body = isTie
     ? `Empatados em 1º: ${leaderNames} — ${topTotal} pt${topTotal === 1 ? '' : 's'}.`
     : `${escapeHtml(leaders[0].nickname)} — ${topTotal} pt${topTotal === 1 ? '' : 's'}.`;
 
-  if (savedText) {
-    box.innerHTML = `
-      <div class="daily-winner-card ready">
-        <div class="daily-winner-title">${title}</div>
-        <div class="daily-winner-body">
-          ${body}<br>
-          🎵 Música escolhida por ${escapeHtml(savedBy || '1º colocado')}:
-        </div>
-        <div class="daily-winner-music">${escapeHtml(savedText)}</div>
-      </div>`;
-    return;
-  }
+  // Bloco de players para músicas já salvas
+  const playersHtml = selections.length > 0
+    ? selections.map((s, i) => `
+        <div class="music-player-card" style="margin-top:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">🎵 Escolha de ${escapeHtml(s.leaderNickname)}</div>
+          <div style="font-size:14px;font-weight:800;color:var(--ink);margin-bottom:10px;">${escapeHtml(s.requestText)}</div>
+          <audio id="player-${dateKey}-${i}" src="" preload="none"
+            style="width:100%;display:none;"></audio>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-primary btn-sm"
+              onclick="toggleMusicPlayer('player-${dateKey}-${i}', this)"
+              style="min-width:72px;">▶ Play</button>
+            <span style="font-size:12px;color:var(--muted);">Parado</span>
+          </div>
+        </div>`).join('')
+    : '';
 
-  if (isMyTurn) {
-    box.innerHTML = `
-      <div class="daily-winner-card ready">
-        <div class="daily-winner-title">${isTie ? '⚡ Empate no 1° lugar!' : '👑 Você foi o 1° do ranking do dia ' + dateLabel + '!'}</div>
-        <div class="daily-winner-body">
-          ${isTie
-            ? `Você está empatado em 1° no dia ${dateLabel}. Quem salvar a música primeiro vence. Empatados: ${leaderNames}.`
-            : `Todos os jogos do dia ${dateLabel} já foram finalizados pelo administrador. Escreva abaixo qual música você quer deixar no app.`}
-        </div>
-        <label for="daily-music-request">Música escolhida</label>
-        <textarea id="daily-music-request" maxlength="120" placeholder="Ex: CPM 22 - Contagem Regressiva"></textarea>
-        <div style="margin-top:10px;">
-          <button class="btn btn-primary" onclick="saveDailyMusicChoice()">Salvar música escolhida</button>
-        </div>
-        <div id="daily-music-msg" class="daily-music-msg"></div>
-      </div>`;
-    return;
-  }
+  // Formulário de escolha (só aparece se for minha vez e ainda não salvei)
+  const formHtml = (isMyTurn && !iAlreadySaved) ? `
+    <div class="daily-winner-card ready" style="margin-top:10px;">
+      <div class="daily-winner-title">${isTie ? '⚡ Sua vez de escolher!' : '👑 Você ganhou o dia ' + dateLabel + '!'}</div>
+      <div class="daily-winner-body">
+        ${isTie
+          ? `Você está empatado em 1°. Escreva sua música — cada um dos empatados pode salvar a sua.`
+          : `Todos os jogos foram finalizados. Escreva qual música você quer deixar no app.`}
+      </div>
+      <label for="daily-music-request">Nome da música</label>
+      <textarea id="daily-music-request" maxlength="120" placeholder="Ex: CPM 22 - Contagem Regressiva"></textarea>
+      <div style="margin-top:10px;">
+        <button class="btn btn-primary" onclick="saveDailyMusicChoice()">Salvar música escolhida</button>
+      </div>
+      <div id="daily-music-msg" class="daily-music-msg"></div>
+    </div>` : '';
+
+  const pendingMsg = (!isMyTurn && selections.length === 0)
+    ? `<div class="daily-winner-body" style="margin-top:6px;">
+        🎵 ${isTie
+          ? 'Aguardando os empatados escolherem suas músicas.'
+          : `Aguardando ${escapeHtml(leaders[0].nickname)} escolher a música.`}
+       </div>` : '';
+
+  const alreadySavedMsg = (iAlreadySaved && isMyTurn)
+    ? `<div class="daily-winner-body" style="margin-top:6px;color:var(--green-ok);">✅ Você já salvou sua música!</div>` : '';
 
   box.innerHTML = `
     <div class="daily-winner-card ready">
       <div class="daily-winner-title">${title}</div>
-      <div class="daily-winner-body">
-        ${body}<br>
-        ${isTie
-          ? `🎵 Música ainda não escolhida. Quem salvar primeiro entre os empatados vence.`
-          : `🎵 Música ainda não escolhida. Aguardando ${escapeHtml(leaders[0].nickname)} escolher.`}
-      </div>
-    </div>`;
+      <div class="daily-winner-body">${body}</div>
+      ${pendingMsg}
+      ${alreadySavedMsg}
+      ${playersHtml}
+    </div>
+    ${formHtml}`;
 }
 
 function renderDailyMusicChoiceBox(topLeaders, dateKey, selectionForDate=null){
@@ -2767,7 +2785,8 @@ async function checkWinnerMusicNotice(){
   const dateKey = dailyMusicDateKey || getLatestCompletedMatchDayKey();
   if (!dateKey || !isMatchDayComplete(dateKey)) return;
 
-  if (dailyMusicSelection?.requestText?.trim()) return;
+  // Não abre modal se esse usuário já salvou a música dele
+  if (dailyMusicSelections.some(s => s.leaderUid === currentUser.uid)) return;
 
   const noticeKey = `${currentUser.uid}_${dateKey}`;
   if (winnerMusicNoticeShownForKey === noticeKey) return;
@@ -2879,26 +2898,30 @@ window.saveDailyMusicChoice = async function(){
       return;
     }
 
-    const selectionRef = doc(db, 'musicSelections', dateKey);
+    // ID único por usuário por dia: dateKey_uid
+    const docId = `${dateKey}_${currentUser.uid}`;
+    const selectionRef = doc(db, 'musicSelections', docId);
 
-    await runTransaction(db, async (transaction) => {
-      const selectionSnap = await transaction.get(selectionRef);
-
-      if (selectionSnap.exists()) {
-        throw new Error('MUSIC_ALREADY_CHOSEN');
+    // Verifica se já salvou antes de escrever
+    const existing = await getDoc(selectionRef);
+    if (existing.exists()) {
+      if (msg) {
+        msg.textContent = 'Você já salvou sua música para esse dia.';
+        msg.className = 'daily-music-msg err';
       }
+      return;
+    }
 
-      transaction.set(selectionRef, {
-        dateKey,
-        dateLabel: formatDateKeyBR(dateKey),
-        leaderUid: currentUser.uid,
-        leaderNickname: userProfile.nickname || currentUser.email || '(sem nome)',
-        requestText,
-      });
+    await setDoc(selectionRef, {
+      dateKey,
+      dateLabel: formatDateKeyBR(dateKey),
+      leaderUid: currentUser.uid,
+      leaderNickname: userProfile.nickname || currentUser.email || '(sem nome)',
+      requestText,
     });
 
     if (msg) {
-      msg.textContent = 'Música salva! Você foi o primeiro entre os líderes empatados.';
+      msg.textContent = 'Música salva com sucesso!';
       msg.className = 'daily-music-msg ok';
     }
     closeWinnerMusicModal();
@@ -2908,11 +2931,7 @@ window.saveDailyMusicChoice = async function(){
   } catch (e) {
     console.error(e);
     if (msg) {
-      if (e.message === 'MUSIC_ALREADY_CHOSEN') {
-        msg.textContent = 'Alguém salvou primeiro. Atualize o ranking para ver a música escolhida.';
-      } else {
-        msg.textContent = 'Não foi possível salvar. Verifique as permissões do Firestore.';
-      }
+      msg.textContent = 'Não foi possível salvar. Tente novamente.';
       msg.className = 'daily-music-msg err';
     }
   }
@@ -3222,6 +3241,31 @@ function renderAdmin(){
   }).join('');
 }
 
+window.toggleMusicPlayer = function(playerId, btn){
+  // Para todos os outros players antes de dar play neste
+  document.querySelectorAll('audio[id^="player-"]').forEach(a => {
+    if (a.id !== playerId) {
+      a.pause();
+      const otherBtn = document.querySelector(`button[onclick*="${a.id}"]`);
+      if (otherBtn) {
+        otherBtn.textContent = '▶ Play';
+        if (otherBtn.nextElementSibling) otherBtn.nextElementSibling.textContent = 'Parado';
+      }
+    }
+  });
+  const audio = $(playerId);
+  if (!audio) return;
+  if (audio.paused) {
+    audio.play().catch(() => {});
+    btn.textContent = '⏸ Pause';
+    if (btn.nextElementSibling) btn.nextElementSibling.textContent = 'Tocando...';
+  } else {
+    audio.pause();
+    btn.textContent = '▶ Play';
+    if (btn.nextElementSibling) btn.nextElementSibling.textContent = 'Parado';
+  }
+};
+
 window.adminToggleProrrogaBlock = function(matchId){
   const block = $('admin-prorroga-block-' + matchId);
   if (!block) return;
@@ -3292,9 +3336,9 @@ window.deleteMatch = async function(matchId){
    Depois altere abaixo o nome, artista e caminho se quiser.
    ================================================================ */
 const LOCAL_MUSIC = {
-  title: 'Entre dos mundos',
-  artist: 'Taoist',
-  src: './audio/entre.mp3'
+  title: 'Galinha Preta',
+  artist: 'Música de Trabalho',
+  src: './audio/trabalhar.mp3'
 };
 
 let localMusicAudio = null;
