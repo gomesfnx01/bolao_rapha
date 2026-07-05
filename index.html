@@ -992,6 +992,9 @@
             <div class="music-title" id="music-title">Nome da música</div>
             <div class="music-artist" id="music-artist">Nome do artista</div>
           </div>
+          <button class="music-btn" id="music-prev-btn" onclick="switchLocalMusic(-1)" title="Música anterior" style="display:none;font-size:10px;padding:0 4px;">‹</button>
+          <span id="music-track-label" style="display:none;font-size:10px;color:var(--muted);min-width:20px;text-align:center;"></span>
+          <button class="music-btn" id="music-next-btn" onclick="switchLocalMusic(1)" title="Próxima música" style="display:none;font-size:10px;padding:0 4px;">›</button>
           <button class="music-btn" id="music-play-btn" onclick="toggleLocalMusic()" title="Play/Pause">▶</button>
           <span class="music-status" id="music-status">Parado</span>
           <input type="range" class="music-progress" id="music-progress" min="0" max="100" value="0" step="0.1" oninput="seekLocalMusic(this.value)" title="Progresso">
@@ -3331,16 +3334,24 @@ window.deleteMatch = async function(matchId){
 };
 
 /* ================================================================
-   PLAYER MP3 LOCAL — arquivo dentro da pasta do projeto
-   Coloque o arquivo em: /audio/musica-teste.mp3
-   Depois altere abaixo o nome, artista e caminho se quiser.
+   PLAYER MP3 LOCAL — até 2 músicas por dia.
+   Edite apenas este array para trocar as músicas.
+   Coloque os arquivos no GitHub e use a URL raw do arquivo.
    ================================================================ */
-const LOCAL_MUSIC = {
-  title: 'Galinha Preta',
-  artist: 'Música de Trabalho',
-  src: './audio/trabalhar.mp3'
-};
+const LOCAL_MUSICS = [
+  {
+    title: 'Close My Eyes Forever',      // ← nome da música 1
+    artist: 'Lita Ford & Ozzy Osbourne', // ← artista da música 1
+    src: './audio/close.mp3'  // ← URL do arquivo (GitHub raw ou caminho local)
+  },
+  {
+    title: '',   // ← nome da música 2 (deixe vazio se houver só 1 música)
+    artist: '',  // ← artista da música 2
+    src: ''      // ← URL do arquivo 2
+  }
+];
 
+let localMusicIndex = 0; // qual música está ativa (0 ou 1)
 let localMusicAudio = null;
 let localMusicPlaying = false;
 let localMusicDuration = 0;
@@ -3356,7 +3367,30 @@ function getMusicEls(){
     progress: document.getElementById('music-progress'),
     volume: document.getElementById('music-volume'),
     currentTime: document.getElementById('music-current-time'),
+    trackLabel: document.getElementById('music-track-label'),
+    prevBtn: document.getElementById('music-prev-btn'),
+    nextBtn: document.getElementById('music-next-btn'),
   };
+}
+
+function getActiveMusic(){
+  return LOCAL_MUSICS[localMusicIndex] || LOCAL_MUSICS[0];
+}
+
+function updateMusicTrackLabel(){
+  const els = getMusicEls();
+  const active = LOCAL_MUSICS.filter(m => m.src);
+  if (!els.trackLabel) return;
+  if (active.length > 1) {
+    els.trackLabel.textContent = `${localMusicIndex + 1}/${active.length}`;
+    els.trackLabel.style.display = '';
+    if (els.prevBtn) els.prevBtn.style.display = '';
+    if (els.nextBtn) els.nextBtn.style.display = '';
+  } else {
+    els.trackLabel.style.display = 'none';
+    if (els.prevBtn) els.prevBtn.style.display = 'none';
+    if (els.nextBtn) els.nextBtn.style.display = 'none';
+  }
 }
 
 function formatMusicTime(seconds){
@@ -3377,12 +3411,14 @@ function setLocalMusicUI(playing){
 
 function initLocalMusic(){
   const els = getMusicEls();
-  els.title.textContent = LOCAL_MUSIC.title;
-  els.artist.textContent = LOCAL_MUSIC.artist;
+  const music = getActiveMusic();
+  els.title.textContent = music.title;
+  els.artist.textContent = music.artist;
   els.status.textContent = 'Parado';
   els.currentTime.textContent = '0:00';
+  updateMusicTrackLabel();
 
-  localMusicAudio = new Audio(LOCAL_MUSIC.src);
+  localMusicAudio = new Audio(music.src);
   localMusicAudio.preload = 'auto';
   localMusicAudio.autoplay = true;
   localMusicAudio.volume = parseFloat(els.volume?.value || 0.8);
@@ -3414,7 +3450,7 @@ function initLocalMusic(){
   });
 
   localMusicAudio.addEventListener('error', () => {
-    console.error('Erro ao carregar MP3 local:', LOCAL_MUSIC.src, localMusicAudio?.error);
+    console.error('Erro ao carregar MP3 local:', getActiveMusic().src, localMusicAudio?.error);
     setLocalMusicUI(false);
     els.status.textContent = 'Arquivo não encontrado';
     els.title.textContent = 'MP3 não carregou';
@@ -3442,6 +3478,37 @@ window.toggleLocalMusic = function(){
 window.setLocalMusicVolume = function(v){
   if (!localMusicAudio) initLocalMusic();
   localMusicAudio.volume = parseFloat(v);
+};
+
+window.switchLocalMusic = function(direction){
+  const active = LOCAL_MUSICS.filter(m => m.src);
+  if (active.length <= 1) return;
+
+  // Pausa a música atual
+  if (localMusicAudio) {
+    localMusicAudio.pause();
+    localMusicAudio = null;
+  }
+  localMusicPlaying = false;
+
+  // Avança ou volta no array de músicas com src
+  const indices = LOCAL_MUSICS.map((m, i) => m.src ? i : -1).filter(i => i >= 0);
+  const currentPos = indices.indexOf(localMusicIndex);
+  const nextPos = (currentPos + direction + indices.length) % indices.length;
+  localMusicIndex = indices[nextPos];
+
+  // Reinicia o player com a nova música
+  const els = getMusicEls();
+  const music = getActiveMusic();
+  els.title.textContent = music.title;
+  els.artist.textContent = music.artist;
+  els.status.textContent = 'Parado';
+  els.progress.value = '0';
+  els.currentTime.textContent = '0:00';
+  setLocalMusicUI(false);
+  updateMusicTrackLabel();
+  localMusicAutoplayTried = false;
+  initLocalMusic();
 };
 
 window.seekLocalMusic = function(value){
