@@ -3022,17 +3022,33 @@ async function renderRankingDia(){
   const ranking = await buildRanking({ onlyDateKey: dateKey });
   const topLeaders = isMatchDayComplete(dateKey) ? getTopRankedUsers(ranking) : [];
 
-  let selectionForDate = null;
-  if (dateKey === dailyMusicDateKey) {
-    selectionForDate = dailyMusicSelection;
-  } else if (isMatchDayComplete(dateKey)) {
+let selectionForDate = [];
+
+if (dateKey === dailyMusicDateKey) {
+
+    selectionForDate = dailyMusicSelections || [];
+
+} else if (isMatchDayComplete(dateKey)) {
+
     try {
-      const selectionSnap = await getDoc(doc(db, 'musicSelections', dateKey));
-      selectionForDate = selectionSnap.exists() ? selectionSnap.data() : null;
-    } catch (e) {
-      console.warn('Não foi possível carregar a música escolhida para o dia selecionado:', e);
+
+        const qMusic = query(
+            collection(db,'musicSelections'),
+            where('dateKey','==',dateKey)
+        );
+
+        const snap = await getDocs(qMusic);
+
+        selectionForDate = snap.docs.map(d=>d.data());
+
+    } catch(e){
+
+        console.warn('Erro carregando músicas:',e);
+
+        selectionForDate = [];
+
     }
-  }
+}
 
   renderDailyWinnerSummary(topLeaders, dateKey, selectionForDate, ranking);
   renderDailyMusicChoiceBox(topLeaders, dateKey, selectionForDate);
