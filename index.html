@@ -994,7 +994,16 @@
 
   /* ---------- Confete (final) ---------- */
   #confetti-layer{
-    position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:5;display:none;
+    position:fixed;
+    top:0; left:50%;
+    transform:translateX(-50%);
+    width:100%;
+    max-width:480px;
+    height:100vh;
+    overflow:hidden;
+    pointer-events:none;
+    z-index:5;
+    display:none;
   }
   #confetti-layer.active{display:block;}
   .confetti-piece{
