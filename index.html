@@ -481,6 +481,21 @@
     font-size:12px;color:var(--muted);font-weight:700;text-align:center;
     margin-top:8px;
   }
+  .today-pred-triple-card{
+    border-top:1px solid var(--line);padding:12px 0;
+  }
+  .today-pred-triple-card:first-child{border-top:none;}
+  .today-pred-triple-head{
+    display:flex;align-items:center;gap:10px;margin-bottom:8px;
+  }
+  .today-pred-triple-picks{display:flex;flex-direction:column;gap:6px;}
+  .today-pred-triple-pick{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    font-size:12px;font-weight:700;background:#F7F3E7;border-radius:8px;padding:7px 10px;
+  }
+  .today-pred-triple-pick.rank-bonus{background:#FFF7E1;border:1px solid #F3D98A;}
+  .today-pred-triple-pick .rank-tag{color:var(--muted);font-weight:800;}
+  .today-pred-triple-pick .score{font-family:'Anton',sans-serif;font-size:14px;color:var(--pitch);}
 
   /* ---------- Profile ---------- */
   .profile-head{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
@@ -1112,10 +1127,10 @@
         <div id="ranking-dia-list"></div>
       </section>
 
-      <!-- PALPITES DE HOJE -->
+      <!-- PALPITES DA GALERA -->
       <section id="tab-hoje" class="tab hidden">
-        <div class="section-title">Palpites de hoje</div>
-        <div class="section-sub">Veja os palpites dos usuários somente para os jogos marcados para hoje.</div>
+        <div class="section-title">Palpites da Galera</div>
+        <div class="section-sub">Veja os palpites de todo mundo para os jogos de hoje e para a final, assim que os palpites forem abertos.</div>
         <div style="margin-bottom:14px;">
           <button class="btn btn-ghost btn-sm" onclick="renderPalpitesHoje()">Atualizar lista</button>
         </div>
@@ -1207,7 +1222,7 @@
         <span class="ico">🥇</span>Dia
       </button>
       <button data-tab="hoje" onclick="switchTab('hoje')">
-        <span class="ico">👀</span>Hoje
+        <span class="ico">🎉</span>Galera
       </button>
       <button data-tab="chat" onclick="switchTab('chat')">
         <span class="ico">💬</span>Chat
@@ -1262,7 +1277,7 @@
         </div>
         <div class="rule-item">
           <div class="rule-icon">🏆</div>
-          <div class="rule-text">Jogos marcados como final: você dá 3 palpites de placar diferentes entre si.<br><span>Você escolhe qual é seu palpite Bônus (vale 2x a pontuação), qual é o Normal (vale 1x) e qual é o Extra (vale 0,5x). Todos os 3 valem para o ranking geral e do dia, cada um com seu peso.</span></div>
+          <div class="rule-text">Jogos com Triplo Palpite (final ou disputa de 3º lugar): você dá 3 palpites de placar diferentes entre si.<br><span>Você escolhe qual é seu palpite Bônus (vale 2x a pontuação), qual é o Normal (vale 1x) e qual é o Extra (vale 0,5x). Todos os 3 valem para o ranking geral e do dia, cada um com seu peso. Pode editar até 30 minutos antes do início do jogo.</span></div>
         </div>
         <div class="rule-item">
           <div class="rule-icon">🎵</div>
@@ -1793,6 +1808,15 @@ function isMatchLocked(match){
   return Date.now() >= kickoffTime;
 }
 
+// Jogos de Triplo Palpite (final) podem ser editados até 30 minutos antes do início
+const TRIPLE_EDIT_CUTOFF_MS = 30 * 60 * 1000;
+function isTripleEditingLocked(match){
+  if (!match || !match.datetime) return false;
+  const kickoffTime = new Date(match.datetime).getTime();
+  if (Number.isNaN(kickoffTime)) return false;
+  return Date.now() >= (kickoffTime - TRIPLE_EDIT_CUTOFF_MS);
+}
+
 // Avalia um único bloco de placar: retorna 0-5 pts
 function scoreBlock(pA, pB, rA, rB){
   pA = Number(pA); pB = Number(pB); rA = Number(rA); rB = Number(rB);
@@ -1832,6 +1856,15 @@ function calcSinglePoints(pred, match){
 // Peso de cada palpite no "Triplo Palpite" (jogos marcados como final)
 const TRIPLE_RANK_WEIGHTS = { bonus: 2, normal: 1, extra: 0.5 };
 const TRIPLE_RANK_LABELS  = { bonus: '🌟 Bônus (2x)', normal: '⚪ Normal (1x)', extra: '➗ Extra (0,5x)' };
+
+// Tipos de jogo que podem usar o Triplo Palpite (final ou disputa de 3º lugar)
+const TRIPLE_KIND_META = {
+  final:    { emoji: '🏆', label: 'Final', title: 'Grande Final' },
+  terceiro: { emoji: '🥉', label: 'Disputa de 3º Lugar', title: 'Disputa de 3º Lugar' },
+};
+function getTripleKindMeta(m){
+  return TRIPLE_KIND_META[m && m.tripleKind] || TRIPLE_KIND_META.final;
+}
 
 function calcPoints(pred, match){
   if (!pred || match.status !== 'finalizado' || match.scoreA == null || match.scoreB == null) return null;
@@ -2128,13 +2161,33 @@ function defaultTriplePicks(){
   ];
 }
 
+// Garante um rascunho editável para o jogo, semeado a partir do palpite já salvo (se houver)
+function getOrInitTriplePicks(m){
+  if (!tripleDrafts[m.id]) {
+    const pred = myPredictions[m.id];
+    if (pred && pred.tripleBet && Array.isArray(pred.picks)) {
+      tripleDrafts[m.id] = pred.picks.map(p => ({
+        predA: p.predA ?? '', predB: p.predB ?? '',
+        pred1TA: p.pred1TA ?? '', pred1TB: p.pred1TB ?? '',
+        pred1PA: p.pred1PA ?? '', pred1PB: p.pred1PB ?? '',
+        pred2PA: p.pred2PA ?? '', pred2PB: p.pred2PB ?? '',
+        predPenA: p.predPenA ?? '', predPenB: p.predPenB ?? '',
+        rank: p.rank
+      }));
+    } else {
+      tripleDrafts[m.id] = defaultTriplePicks();
+    }
+  }
+  return tripleDrafts[m.id];
+}
+
 function captureTripleDraftsFromDOM(){
-  allMatches.filter(m => m.tripleBet && !myPredictions[m.id] && !isMatchLocked(m) && m.status !== 'finalizado').forEach(m => {
+  allMatches.filter(m => m.tripleBet && !isTripleEditingLocked(m) && m.status !== 'finalizado').forEach(m => {
     for (let i = 0; i < 3; i++){
       const aEl = $('triple-score-a-'+m.id+'-'+i);
       if (!aEl) continue; // não está renderizado agora (ex: outra aba aberta)
-      if (!tripleDrafts[m.id]) tripleDrafts[m.id] = defaultTriplePicks();
-      const pick = tripleDrafts[m.id][i];
+      const picks = getOrInitTriplePicks(m);
+      const pick = picks[i];
       const g = (id) => { const el = $(id); return el ? el.value : ''; };
       pick.predA = g('triple-score-a-'+m.id+'-'+i);
       pick.predB = g('triple-score-b-'+m.id+'-'+i);
@@ -2153,8 +2206,8 @@ function captureTripleDraftsFromDOM(){
 }
 
 window.updateTripleDraft = function(matchId, i){
-  if (!tripleDrafts[matchId]) tripleDrafts[matchId] = defaultTriplePicks();
-  const pick = tripleDrafts[matchId][i];
+  const m = allMatches.find(x => x.id === matchId);
+  const pick = (m ? getOrInitTriplePicks(m) : (tripleDrafts[matchId] || (tripleDrafts[matchId] = defaultTriplePicks())))[i];
   const g = (id) => { const el = $(id); return el ? el.value : ''; };
 
   pick.predA = g('triple-score-a-'+matchId+'-'+i);
@@ -2179,22 +2232,26 @@ window.updateTripleDraft = function(matchId, i){
 };
 
 window.updateTripleRank = function(matchId, i){
-  if (!tripleDrafts[matchId]) tripleDrafts[matchId] = defaultTriplePicks();
+  const m = allMatches.find(x => x.id === matchId);
+  const picks = m ? getOrInitTriplePicks(m) : (tripleDrafts[matchId] || (tripleDrafts[matchId] = defaultTriplePicks()));
   const sel = $('triple-rank-'+matchId+'-'+i);
   if (!sel) return;
-  tripleDrafts[matchId][i].rank = sel.value;
+  picks[i].rank = sel.value;
   sel.className = 'rank-select rank-' + sel.value;
 };
 
 function renderTripleMatchCard(m){
   const pred = myPredictions[m.id];
   const isFinal = m.status === 'finalizado';
-  const isLocked = isMatchLocked(m);
+  const editLocked = isFinal || isTripleEditingLocked(m);
   const points = pred ? calcPoints(pred, m) : null;
+  const tripleMeta = getTripleKindMeta(m);
   const savedTriple = (pred && pred.tripleBet && Array.isArray(pred.picks)) ? pred.picks : null;
-  const picks = savedTriple || tripleDrafts[m.id] || defaultTriplePicks();
+  // Enquanto a edição está liberada, usamos o rascunho (semeado com o palpite salvo, se houver).
+  // Depois do prazo, mostramos só o que foi salvo (read-only).
+  const picks = editLocked ? (savedTriple || defaultTriplePicks()) : getOrInitTriplePicks(m);
 
-  const disableInputs = Boolean(pred || isLocked || isFinal);
+  const disableInputs = editLocked;
   const dis = disableInputs ? 'disabled' : '';
 
   const subRow = (idA, idB, vA, vB, label, i) => `
@@ -2260,33 +2317,32 @@ function renderTripleMatchCard(m){
   }).join('');
 
   let footer = '';
-  if (pred) {
-    if (isFinal && points !== null) {
-      footer = `<div class="result-note" style="margin-top:12px;"><span class="badge ${pointsBadgeClass(points)}">Total: +${formatPoints(points)} pt${points===1?'':'s'}</span></div>`;
-    } else {
-      footer = `<div class="saved-note" style="margin-top:12px;">✅ Seus 3 palpites foram registrados. Aguardando o apito final!</div>`;
-    }
-  } else if (isFinal) {
-    footer = `<div class="saved-note" style="margin-top:12px;">— Você não registrou os 3 palpites para este jogo —</div>`;
-  } else if (isLocked) {
-    footer = `<div class="saved-note" style="margin-top:12px;">⏰ Palpites encerrados: o jogo já começou.</div>`;
+  if (isFinal) {
+    footer = points !== null
+      ? `<div class="result-note" style="margin-top:12px;"><span class="badge ${pointsBadgeClass(points)}">Total: +${formatPoints(points)} pt${points===1?'':'s'}</span></div>`
+      : `<div class="saved-note" style="margin-top:12px;">— Você não registrou os 3 palpites para este jogo —</div>`;
+  } else if (editLocked) {
+    footer = pred
+      ? `<div class="saved-note" style="margin-top:12px;">⏰ Edição encerrada (30 min antes do jogo). Seus 3 palpites estão registrados. Boa sorte!</div>`
+      : `<div class="saved-note" style="margin-top:12px;">⏰ Edição encerrada: faltam menos de 30 minutos para o jogo e você não registrou palpites.</div>`;
   } else {
     footer = `
       <div class="triple-save-box">
-        <button class="btn btn-primary" onclick="saveTriplePrediction('${m.id}')">Salvar meus 3 palpites</button>
+        <button class="btn btn-primary" onclick="saveTriplePrediction('${m.id}')">${pred ? 'Atualizar meus 3 palpites' : 'Salvar meus 3 palpites'}</button>
+        <div class="batch-save-note" style="margin-top:8px;">Você pode editar quantas vezes quiser até 30 minutos antes do início do jogo.</div>
         <div id="triple-save-msg-${m.id}" class="batch-save-msg"></div>
       </div>`;
   }
 
   const statusBadge = isFinal
     ? `<span class="badge badge-done">Resultado: ${m.scoreA} x ${m.scoreB}</span>`
-    : (isLocked ? `<span class="badge badge-pending">Palpites encerrados</span>` : `<span class="badge badge-pending">Aguardando jogo</span>`);
+    : (editLocked ? `<span class="badge badge-pending">Edição encerrada</span>` : `<span class="badge badge-pending">Edição aberta</span>`);
 
   return `
     <div class="match-card">
       <div class="final-banner">
-        <div class="title">🏆 ${m.teamA} x ${m.teamB} — Grande Final</div>
-        <div class="desc">Dê 3 palpites de placar diferentes entre si e escolha o peso de cada um. Os 3 valem para o ranking geral e do dia.</div>
+        <div class="title">${tripleMeta.emoji} ${m.teamA} x ${m.teamB} — ${tripleMeta.title}</div>
+        <div class="desc">Dê 3 palpites de placar diferentes entre si e escolha o peso de cada um. Os 3 valem para o ranking geral e do dia. Você pode editar até 30 minutos antes do início do jogo.</div>
         <div class="weights">
           <span class="weight-chip bonus">🌟 Bônus = 2x os pontos</span>
           <span class="weight-chip">⚪ Normal = 1x os pontos</span>
@@ -2308,9 +2364,11 @@ function renderTripleMatchCard(m){
 window.saveTriplePrediction = async function(matchId){
   const m = allMatches.find(x => x.id === matchId);
   if (!m) return;
+  const pred = myPredictions[matchId];
+  const alreadySaved = Boolean(pred && pred.tripleBet);
 
-  if (myPredictions[matchId] || isMatchLocked(m) || m.status === 'finalizado') {
-    alert('Este jogo já começou ou os palpites já foram registrados.');
+  if (m.status === 'finalizado' || isTripleEditingLocked(m)) {
+    alert('A edição deste palpite já foi encerrada (30 minutos antes do início do jogo).');
     renderPalpites();
     return;
   }
@@ -2344,10 +2402,13 @@ window.saveTriplePrediction = async function(matchId){
   }
 
   const resumo = picks.map(p => `${TRIPLE_RANK_LABELS[p.rank]}: ${m.teamA} ${p.predA} x ${p.predB} ${m.teamB}`).join('\n');
-  if (!confirm(`Confirmar seus 3 palpites para a final?\n\n${resumo}\n\nDepois de salvar, não será possível alterar.`)) return;
+  const confirmMsg = alreadySaved
+    ? `Confirmar a atualização dos seus 3 palpites para a final?\n\n${resumo}\n\nVocê ainda pode editar até 30 minutos antes do jogo começar.`
+    : `Confirmar seus 3 palpites para a final?\n\n${resumo}\n\nVocê pode editar novamente até 30 minutos antes do jogo começar.`;
+  if (!confirm(confirmMsg)) return;
 
-  if (isMatchLocked(m) || m.status === 'finalizado') {
-    alert('O jogo começou enquanto você confirmava. Revise e tente novamente.');
+  if (m.status === 'finalizado' || isTripleEditingLocked(m)) {
+    alert('O prazo de edição encerrou enquanto você confirmava.');
     renderPalpites();
     return;
   }
@@ -2370,14 +2431,15 @@ window.saveTriplePrediction = async function(matchId){
 
   try {
     const predId = `${currentUser.uid}_${matchId}`;
-    await setDoc(doc(db, 'predictions', predId), {
+    const payload = {
       uid: currentUser.uid,
       matchId,
       tripleBet: true,
       picks: picks.map(cleanPick),
-      createdAt: serverTimestamp()
-    });
-    delete tripleDrafts[matchId];
+      updatedAt: serverTimestamp()
+    };
+    if (!alreadySaved) payload.createdAt = serverTimestamp();
+    await setDoc(doc(db, 'predictions', predId), payload, { merge: true });
     cachedAllPreds = null;
     renderPalpites();
   } catch (e) {
@@ -2385,7 +2447,7 @@ window.saveTriplePrediction = async function(matchId){
     const msgEl = $('triple-save-msg-'+matchId);
     if (msgEl) { msgEl.textContent = 'Não foi possível salvar. Tente novamente.'; msgEl.className = 'batch-save-msg err'; }
     alert('Não foi possível salvar seus palpites. Tente novamente.');
-    if (btn) { btn.disabled = false; btn.textContent = 'Salvar meus 3 palpites'; }
+    if (btn) { btn.disabled = false; btn.textContent = alreadySaved ? 'Atualizar meus 3 palpites' : 'Salvar meus 3 palpites'; }
   }
 };
 
@@ -2591,14 +2653,16 @@ window.renderPalpitesHoje = async function(){
   const list = $('today-predictions-list');
   if (!list) return;
 
-  const todayMatches = allMatches.filter(isMatchToday);
+  const todayKey = getTodayBrasiliaDateKey();
+  // Jogos de hoje + jogos de Triplo Palpite (final) já liberados, mesmo antes do dia do jogo
+  const todayMatches = allMatches.filter(m => getMatchDateKey(m) === todayKey || (m.tripleBet && getMatchDateKey(m) > todayKey));
 
   if (todayMatches.length === 0) {
-    list.innerHTML = `<div class="empty-state"><span class="big">📅</span>Nenhum jogo marcado para hoje.</div>`;
+    list.innerHTML = `<div class="empty-state"><span class="big">📅</span>Nenhum jogo disponível para palpites no momento.</div>`;
     return;
   }
 
-  list.innerHTML = `<div class="empty-state">Carregando palpites de hoje...</div>`;
+  list.innerHTML = `<div class="empty-state">Carregando palpites da galera...</div>`;
 
   try {
     const [usersById, allPreds] = await Promise.all([
@@ -2636,16 +2700,40 @@ window.renderPalpitesHoje = async function(){
         ? `<div class="saved-note" style="padding:12px 0;">— Nenhum usuário palpitou neste jogo ainda —</div>`
         : preds.map(p => {
             const u = usersById[p.uid] || { nickname: '(usuário removido)', photoBase64: '' };
+
+            if (p.tripleBet && Array.isArray(p.picks)) {
+              const total = calcPoints(p, m);
+              const totalBadge = total === null ? '' : `<span class="badge ${pointsBadgeClass(total)}">Total: +${formatPoints(total)}</span>`;
+              const rankOrder = { bonus: 0, normal: 1, extra: 2 };
+              const orderedPicks = [...p.picks].sort((a,b) => (rankOrder[a.rank] ?? 9) - (rankOrder[b.rank] ?? 9));
+              const picksHtml = orderedPicks.map(pick => {
+                const pickPts = isFinal ? calcSinglePoints(pick, m) * (TRIPLE_RANK_WEIGHTS[pick.rank] ?? 1) : null;
+                const pickBadge = pickPts === null ? '' : `<span class="badge ${pointsBadgeClass(pickPts)}">+${formatPoints(pickPts)}</span>`;
+                return `
+                  <div class="today-pred-triple-pick rank-${pick.rank}">
+                    <span class="rank-tag">${TRIPLE_RANK_LABELS[pick.rank] || pick.rank}</span>
+                    <span class="score">${pick.predA} x ${pick.predB}</span>
+                    ${pickBadge}
+                  </div>`;
+              }).join('');
+              return `
+                <div class="today-pred-triple-card">
+                  <div class="today-pred-triple-head">
+                    ${avatarHTML(u.photoBase64, '⚽', '')}
+                    <div class="today-pred-name">${escapeHtml(u.nickname)}</div>
+                    ${totalBadge}
+                  </div>
+                  <div class="today-pred-triple-picks">${picksHtml}</div>
+                </div>`;
+            }
+
             const pts = calcPoints(p, m);
             const pointsBadge = pts === null ? '' : `<span class="badge ${pointsBadgeClass(pts)}">+${formatPoints(pts)}</span>`;
-            const scoreText = (p.tripleBet && Array.isArray(p.picks))
-              ? p.picks.map(pick => `${TRIPLE_RANK_LABELS[pick.rank] ? TRIPLE_RANK_LABELS[pick.rank].split(' ')[0] : ''} ${pick.predA}x${pick.predB}`).join(' · ')
-              : `${p.predA} x ${p.predB}`;
             return `
               <div class="today-pred-row">
                 ${avatarHTML(u.photoBase64, '⚽', '')}
                 <div class="today-pred-name">${escapeHtml(u.nickname)}</div>
-                <div class="today-pred-score">${scoreText}</div>
+                <div class="today-pred-score">${p.predA} x ${p.predB}</div>
                 ${pointsBadge}
               </div>`;
           }).join('');
@@ -2670,7 +2758,7 @@ window.renderPalpitesHoje = async function(){
     }).join('');
   } catch (e) {
     console.error(e);
-    list.innerHTML = `<div class="error-msg">Não foi possível carregar os palpites de hoje. Verifique as permissões do Firestore.</div>`;
+    list.innerHTML = `<div class="error-msg">Não foi possível carregar os palpites da galera. Verifique as permissões do Firestore.</div>`;
   }
 };
 
@@ -3651,11 +3739,12 @@ function renderAdmin(){
     const hasP = m.score1PA != null;
     const hasPen = m.scorePenA != null;
     const isTriple = Boolean(m.tripleBet);
+    const tripleMeta = getTripleKindMeta(m);
 
     return `
       <div class="admin-match-row">
         <div class="admin-match-top">
-          <span>${groupLabel} · ${fmtDateTime(m.datetime)}${isTriple ? ' · 🏆 Triplo Palpite' : ''}</span>
+          <span>${groupLabel} · ${fmtDateTime(m.datetime)}${isTriple ? ` · ${tripleMeta.emoji} Triplo Palpite (${tripleMeta.label})` : ''}</span>
           <span>${isFinal ? '✅ Finalizado' : '⏳ Em aberto'}</span>
         </div>
         <div class="admin-match-teams">
@@ -3673,7 +3762,10 @@ function renderAdmin(){
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-ghost btn-sm" onclick="adminToggleProrrogaBlock('${m.id}')">+ Prorrogação</button>
           <button class="btn btn-ghost btn-sm" onclick="adminTogglePenBlock('${m.id}')">+ Pênaltis</button>
-          <button class="btn btn-ghost btn-sm" onclick="adminToggleTripleBet('${m.id}')">${isTriple ? '🏆 Desativar Triplo Palpite' : '🏆 Ativar Triplo Palpite (Final)'}</button>
+          ${isTriple
+            ? `<button class="btn btn-ghost btn-sm" onclick="adminToggleTripleBet('${m.id}')">${tripleMeta.emoji} Desativar Triplo Palpite</button>`
+            : `<button class="btn btn-ghost btn-sm" onclick="adminToggleTripleBet('${m.id}','final')">🏆 Ativar Triplo Palpite (Final)</button>
+               <button class="btn btn-ghost btn-sm" onclick="adminToggleTripleBet('${m.id}','terceiro')">🥉 Ativar Triplo Palpite (Disputa 3º Lugar)</button>`}
         </div>
         <div class="admin-actions">
           <button class="btn btn-primary btn-sm" onclick="finalizeMatch('${m.id}')">${isFinal ? 'Atualizar resultado' : 'Salvar resultado'}</button>
@@ -3720,13 +3812,15 @@ window.adminTogglePenBlock = function(matchId){
   block.style.display = block.style.display === 'none' ? '' : 'none';
 };
 
-window.adminToggleTripleBet = async function(matchId){
+window.adminToggleTripleBet = async function(matchId, kind){
   const m = allMatches.find(x => x.id === matchId);
   if (!m) return;
   const next = !m.tripleBet;
-  if (next && !confirm(`Ativar o Triplo Palpite para ${m.teamA} x ${m.teamB}?\n\nOs usuários passarão a dar 3 palpites de placar (Bônus 2x, Normal 1x, Extra 0,5x) para este jogo.`)) return;
+  const kindMeta = TRIPLE_KIND_META[kind] || TRIPLE_KIND_META.final;
+  if (next && !confirm(`Ativar o Triplo Palpite (${kindMeta.label}) para ${m.teamA} x ${m.teamB}?\n\nOs usuários passarão a dar 3 palpites de placar (Bônus 2x, Normal 1x, Extra 0,5x) para este jogo.`)) return;
   try {
-    await updateDoc(doc(db, 'matches', matchId), { tripleBet: next });
+    const payload = next ? { tripleBet: true, tripleKind: kind || 'final' } : { tripleBet: false };
+    await updateDoc(doc(db, 'matches', matchId), payload);
   } catch (e) {
     console.error(e);
     alert('Não foi possível atualizar o jogo. Tente novamente.');
