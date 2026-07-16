@@ -927,6 +927,69 @@
     .music-title{font-size:10px;}
     .music-artist{font-size:9px;}
   }
+
+  /* ---------- Triplo Palpite (final) ---------- */
+  .final-banner{
+    background:linear-gradient(135deg,var(--pitch),var(--pitch-deep));
+    color:#fff;
+    border-radius:14px;
+    padding:16px 18px;
+    margin-bottom:14px;
+    border:2px solid var(--amber);
+  }
+  .final-banner .title{
+    font-family:'Anton',sans-serif;
+    letter-spacing:.5px;
+    font-size:16px;
+    color:var(--amber);
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .final-banner .desc{font-size:12.5px;line-height:1.5;color:#DCEAE2;}
+  .final-banner .weights{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .final-banner .weight-chip{
+    font-size:11px;font-weight:800;padding:5px 10px;border-radius:999px;
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);
+  }
+  .weight-chip.bonus{border-color:var(--amber);color:var(--amber);}
+  .triple-pick{
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:12px;
+    margin-top:12px;
+    background:#FBFAF5;
+  }
+  .triple-pick-head{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;
+  }
+  .triple-pick-head .pick-label{
+    font-family:'Anton',sans-serif;font-size:13px;letter-spacing:.4px;color:var(--pitch);text-transform:uppercase;
+  }
+  .rank-select{font-size:12px;font-weight:700;padding:7px 10px;width:auto;border-radius:8px;}
+  .rank-select.rank-bonus{border-color:var(--amber);background:#FFF7E1;color:#8A6300;}
+  .rank-select.rank-normal{border-color:var(--line);}
+  .rank-select.rank-extra{border-color:var(--muted);color:var(--muted);}
+  .triple-save-box{margin-top:14px;}
+  .triple-summary-row{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:8px 0;border-top:1px solid var(--line);font-size:12.5px;
+  }
+  .triple-summary-row:first-of-type{border-top:none;}
+  .triple-summary-row .lbl{font-weight:800;color:var(--pitch);}
+
+  /* ---------- Confete (final) ---------- */
+  #confetti-layer{
+    position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:5;display:none;
+  }
+  #confetti-layer.active{display:block;}
+  .confetti-piece{
+    position:absolute;top:-20px;width:7px;height:12px;opacity:.85;
+    animation:confetti-fall linear infinite;border-radius:1px;
+  }
+  @keyframes confetti-fall{
+    0%{transform:translateY(0) rotate(0deg);}
+    100%{transform:translateY(120vh) rotate(360deg);}
+  }
 </style>
 </head>
 <body>
@@ -934,6 +997,7 @@
 <div id="loading">CARREGANDO O BOLÃO...</div>
 
 <div id="shell" class="hidden">
+  <div id="confetti-layer"></div>
 
   <!-- ============ AUTH SCREEN ============ -->
   <div id="auth-screen" class="screen hidden">
@@ -1197,6 +1261,10 @@
           <div class="rule-text">Pênaltis: palpite o placar da disputa (ex: 5 x 3).<br><span>Vale 5 pts (placar exato), 2 pts (acertou quem passou) ou 1 pt (acertou um lado). Disponível somente se você palpitar empate nos dois tempos da prorrogação.</span></div>
         </div>
         <div class="rule-item">
+          <div class="rule-icon">🏆</div>
+          <div class="rule-text">Jogos marcados como final: você dá 3 palpites de placar diferentes entre si.<br><span>Você escolhe qual é seu palpite Bônus (vale 2x a pontuação), qual é o Normal (vale 1x) e qual é o Extra (vale 0,5x). Todos os 3 valem para o ranking geral e do dia, cada um com seu peso.</span></div>
+        </div>
+        <div class="rule-item">
           <div class="rule-icon">🎵</div>
           <div class="rule-text">A música é definida pelo 1º colocado do ranking do dia.<br><span>A liberação acontece quando o admin finaliza todos os jogos do dia.</span></div>
         </div>
@@ -1294,6 +1362,7 @@ let userProfile = null;
 let allMatches = [];           // [{id, group, teamA, teamB, datetime, scoreA, scoreB, status}]
 let myPredictions = {};        // matchId -> {predA, predB}
 let predictionDrafts = {};     // matchId -> {predA, predB} temporário enquanto o usuário preenche
+let tripleDrafts = {};         // matchId -> [ {predA,predB,...,rank}, {...}, {...} ] — rascunho do Triplo Palpite (jogos finais)
 let dailyMusicSelections = []; // músicas salvas do dia (um doc por vencedor)
 let dailyMusicDateKey = '';
 let chatMessages = [];
@@ -1509,6 +1578,7 @@ function subscribeMatches(){
   unsubMatches = onSnapshot(q, snap => {
     allMatches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderPalpites();
+    updateConfettiState();
     refreshDailyMusicSubscription();
     checkWinnerMusicNotice();
     if (!$('tab-historico').classList.contains('hidden')) renderHistorico();
@@ -1734,39 +1804,64 @@ function scoreBlock(pA, pB, rA, rB){
   return pts;
 }
 
-function calcPoints(pred, match){
-  if (match.status !== 'finalizado' || match.scoreA == null || match.scoreB == null) return null;
-
+// Pontuação de uma única cesta de palpites (placar normal + 1ºT + prorrogação + pênaltis)
+function calcSinglePoints(pred, match){
   let points = 0;
 
   // Placar tempo normal
   points += scoreBlock(pred.predA, pred.predB, match.scoreA, match.scoreB);
 
   // 1º tempo normal
-  if (match.score1TA != null && match.score1TB != null && pred.pred1TA != null && pred.pred1TB != null)
+  if (match.score1TA != null && match.score1TB != null && pred.pred1TA != null && pred.pred1TA !== '' && pred.pred1TB != null && pred.pred1TB !== '')
     points += scoreBlock(pred.pred1TA, pred.pred1TB, match.score1TA, match.score1TB);
 
   // Prorrogação e pênaltis — mesma lógica do placar geral (5/2/1)
-  if (match.score1PA != null && match.score1PB != null && pred.pred1PA != null && pred.pred1PB != null)
+  if (match.score1PA != null && match.score1PB != null && pred.pred1PA != null && pred.pred1PA !== '' && pred.pred1PB != null && pred.pred1PB !== '')
     points += scoreBlock(pred.pred1PA, pred.pred1PB, match.score1PA, match.score1PB);
 
-  if (match.score2PA != null && match.score2PB != null && pred.pred2PA != null && pred.pred2PB != null)
+  if (match.score2PA != null && match.score2PB != null && pred.pred2PA != null && pred.pred2PA !== '' && pred.pred2PB != null && pred.pred2PB !== '')
     points += scoreBlock(pred.pred2PA, pred.pred2PB, match.score2PA, match.score2PB);
 
   // Pênaltis
-  if (match.scorePenA != null && match.scorePenB != null && pred.predPenA != null && pred.predPenB != null)
+  if (match.scorePenA != null && match.scorePenB != null && pred.predPenA != null && pred.predPenA !== '' && pred.predPenB != null && pred.predPenB !== '')
     points += scoreBlock(pred.predPenA, pred.predPenB, match.scorePenA, match.scorePenB);
 
   return points;
 }
 
+// Peso de cada palpite no "Triplo Palpite" (jogos marcados como final)
+const TRIPLE_RANK_WEIGHTS = { bonus: 2, normal: 1, extra: 0.5 };
+const TRIPLE_RANK_LABELS  = { bonus: '🌟 Bônus (2x)', normal: '⚪ Normal (1x)', extra: '➗ Extra (0,5x)' };
+
+function calcPoints(pred, match){
+  if (!pred || match.status !== 'finalizado' || match.scoreA == null || match.scoreB == null) return null;
+
+  if (pred.tripleBet && Array.isArray(pred.picks)) {
+    let total = 0;
+    pred.picks.forEach(pick => {
+      const weight = TRIPLE_RANK_WEIGHTS[pick.rank] ?? 1;
+      total += weight * calcSinglePoints(pick, match);
+    });
+    // Evita erros de ponto flutuante (ex: 2.5000000004)
+    return Math.round(total * 100) / 100;
+  }
+
+  return calcSinglePoints(pred, match);
+}
+
+// Exibe pontuação podendo ter casas decimais (ex: pesos 0,5x / 2x do Triplo Palpite)
+function formatPoints(points){
+  const n = Math.round(points * 100) / 100;
+  const asStr = Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/,'').replace(',', '.').replace('.', ',');
+  return asStr;
+}
+
 function pointsBadgeClass(points){
   if (points >= 10) return 'badge-points-5';  // ouro para pontuacoes altas
   if (points >= 5)  return 'badge-points-5';
-  if (points === 4) return 'badge-points-3';
-  if (points === 3) return 'badge-points-3';
-  if (points === 2) return 'badge-points-2';
-  if (points === 1) return 'badge-points-1';
+  if (points >= 3)  return 'badge-points-3';
+  if (points >= 2)  return 'badge-points-2';
+  if (points > 0)   return 'badge-points-1';
   return 'badge-points-0';
 }
 
@@ -1881,18 +1976,29 @@ function updateExtraBlocksVisibility(matchId, aVal, bVal){
 
 window.renderPalpites = function(){
   capturePredictionDraftsFromDOM();
+  captureTripleDraftsFromDOM();
   const list = $('palpites-list');
   if (!list) return;
 
   const todayKey = getTodayBrasiliaDateKey();
-  const matches = allMatches.filter(m => getMatchDateKey(m) === todayKey);
+  // Jogos de Triplo Palpite (final) ficam disponíveis assim que o admin ativa,
+  // mesmo antes do dia do jogo — os demais jogos continuam aparecendo só no dia.
+  const tripleMatches = allMatches.filter(m => m.tripleBet && getMatchDateKey(m) >= todayKey);
+  const matches = allMatches.filter(m => !m.tripleBet && getMatchDateKey(m) === todayKey);
 
-  if (matches.length === 0) {
+  if (tripleMatches.length === 0 && matches.length === 0) {
     list.innerHTML = `<div class="empty-state"><span class="big">📅</span>Nenhum jogo cadastrado para hoje.<br>Quando o administrador adicionar jogos com a data de hoje, eles aparecerão aqui.</div>`;
     return;
   }
 
-  list.innerHTML = matches.map(m => {
+  const tripleHtml = tripleMatches.map(renderTripleMatchCard).join('');
+
+  // O botão de "Salvar palpites preenchidos" só serve para os jogos normais do dia
+  // (o Triplo Palpite tem seu próprio botão "Salvar meus 3 palpites" dentro do card).
+  const saveBox = $('palpites-save-bottom-box');
+  if (saveBox) saveBox.style.display = matches.length > 0 ? '' : 'none';
+
+  list.innerHTML = tripleHtml + matches.map(m => {
     const flagA = FLAG_BY_NAME[m.teamA] || '🏳️';
     const flagB = FLAG_BY_NAME[m.teamB] || '🏳️';
     const pred = myPredictions[m.id];
@@ -1966,7 +2072,7 @@ window.renderPalpites = function(){
       footer = `<div class="saved-note">${lines.join(' · ')}</div>`;
       if (isFinal && points !== null) {
         const cls = pointsBadgeClass(points);
-        footer += `<div class="result-note"><span class="badge ${cls}">+${points} pt${points===1?'':'s'}</span></div>`;
+        footer += `<div class="result-note"><span class="badge ${cls}">+${formatPoints(points)} pt${points===1?'':'s'}</span></div>`;
       }
     } else if (isFinal) {
       footer = `<div class="saved-note">— Você não registrou palpite para este jogo —</div>`;
@@ -2013,6 +2119,276 @@ window.renderPalpites = function(){
   }).join('');
 };
 
+/* ---------------- Triplo Palpite (jogos marcados como final) ---------------- */
+function defaultTriplePicks(){
+  return [
+    { predA:'', predB:'', pred1TA:'', pred1TB:'', pred1PA:'', pred1PB:'', pred2PA:'', pred2PB:'', predPenA:'', predPenB:'', rank:'bonus' },
+    { predA:'', predB:'', pred1TA:'', pred1TB:'', pred1PA:'', pred1PB:'', pred2PA:'', pred2PB:'', predPenA:'', predPenB:'', rank:'normal' },
+    { predA:'', predB:'', pred1TA:'', pred1TB:'', pred1PA:'', pred1PB:'', pred2PA:'', pred2PB:'', predPenA:'', predPenB:'', rank:'extra' },
+  ];
+}
+
+function captureTripleDraftsFromDOM(){
+  allMatches.filter(m => m.tripleBet && !myPredictions[m.id] && !isMatchLocked(m) && m.status !== 'finalizado').forEach(m => {
+    for (let i = 0; i < 3; i++){
+      const aEl = $('triple-score-a-'+m.id+'-'+i);
+      if (!aEl) continue; // não está renderizado agora (ex: outra aba aberta)
+      if (!tripleDrafts[m.id]) tripleDrafts[m.id] = defaultTriplePicks();
+      const pick = tripleDrafts[m.id][i];
+      const g = (id) => { const el = $(id); return el ? el.value : ''; };
+      pick.predA = g('triple-score-a-'+m.id+'-'+i);
+      pick.predB = g('triple-score-b-'+m.id+'-'+i);
+      pick.pred1TA = g('triple-t1-a-'+m.id+'-'+i);
+      pick.pred1TB = g('triple-t1-b-'+m.id+'-'+i);
+      pick.pred1PA = g('triple-p1-a-'+m.id+'-'+i);
+      pick.pred1PB = g('triple-p1-b-'+m.id+'-'+i);
+      pick.pred2PA = g('triple-p2-a-'+m.id+'-'+i);
+      pick.pred2PB = g('triple-p2-b-'+m.id+'-'+i);
+      pick.predPenA = g('triple-pen-a-'+m.id+'-'+i);
+      pick.predPenB = g('triple-pen-b-'+m.id+'-'+i);
+      const rankSel = $('triple-rank-'+m.id+'-'+i);
+      if (rankSel) pick.rank = rankSel.value;
+    }
+  });
+}
+
+window.updateTripleDraft = function(matchId, i){
+  if (!tripleDrafts[matchId]) tripleDrafts[matchId] = defaultTriplePicks();
+  const pick = tripleDrafts[matchId][i];
+  const g = (id) => { const el = $(id); return el ? el.value : ''; };
+
+  pick.predA = g('triple-score-a-'+matchId+'-'+i);
+  pick.predB = g('triple-score-b-'+matchId+'-'+i);
+  pick.pred1TA = g('triple-t1-a-'+matchId+'-'+i);
+  pick.pred1TB = g('triple-t1-b-'+matchId+'-'+i);
+  pick.pred1PA = g('triple-p1-a-'+matchId+'-'+i);
+  pick.pred1PB = g('triple-p1-b-'+matchId+'-'+i);
+  pick.pred2PA = g('triple-p2-a-'+matchId+'-'+i);
+  pick.pred2PB = g('triple-p2-b-'+matchId+'-'+i);
+  pick.predPenA = g('triple-pen-a-'+matchId+'-'+i);
+  pick.predPenB = g('triple-pen-b-'+matchId+'-'+i);
+
+  // Visibilidade de prorrogação/pênaltis específica deste palpite
+  const isDrawNormal = pick.predA !== '' && pick.predB !== '' && Number(pick.predA) === Number(pick.predB);
+  const prorrogaBlock = $('triple-prorroga-block-'+matchId+'-'+i);
+  if (prorrogaBlock) prorrogaBlock.style.display = isDrawNormal ? '' : 'none';
+
+  const isDrawProrroga = pick.pred2PA !== '' && pick.pred2PB !== '' && Number(pick.pred2PA) === Number(pick.pred2PB);
+  const penBlock = $('triple-pen-block-'+matchId+'-'+i);
+  if (penBlock) penBlock.style.display = (isDrawNormal && isDrawProrroga) ? '' : 'none';
+};
+
+window.updateTripleRank = function(matchId, i){
+  if (!tripleDrafts[matchId]) tripleDrafts[matchId] = defaultTriplePicks();
+  const sel = $('triple-rank-'+matchId+'-'+i);
+  if (!sel) return;
+  tripleDrafts[matchId][i].rank = sel.value;
+  sel.className = 'rank-select rank-' + sel.value;
+};
+
+function renderTripleMatchCard(m){
+  const pred = myPredictions[m.id];
+  const isFinal = m.status === 'finalizado';
+  const isLocked = isMatchLocked(m);
+  const points = pred ? calcPoints(pred, m) : null;
+  const savedTriple = (pred && pred.tripleBet && Array.isArray(pred.picks)) ? pred.picks : null;
+  const picks = savedTriple || tripleDrafts[m.id] || defaultTriplePicks();
+
+  const disableInputs = Boolean(pred || isLocked || isFinal);
+  const dis = disableInputs ? 'disabled' : '';
+
+  const subRow = (idA, idB, vA, vB, label, i) => `
+    <div class="score-block" style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px;">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">${label}</div>
+      <div class="teams-row" style="margin-top:0;">
+        <div class="team-col" style="gap:4px;">
+          <div class="name" style="font-size:11px;">${m.teamA}</div>
+          <input type="number" min="0" max="30" class="score-box" id="${idA}" value="${vA ?? ''}" ${dis} ${disableInputs ? '' : `oninput="updateTripleDraft('${m.id}',${i})"`}>
+        </div>
+        <div class="versus" style="font-size:14px;">x</div>
+        <div class="team-col" style="gap:4px;">
+          <div class="name" style="font-size:11px;">${m.teamB}</div>
+          <input type="number" min="0" max="30" class="score-box" id="${idB}" value="${vB ?? ''}" ${dis} ${disableInputs ? '' : `oninput="updateTripleDraft('${m.id}',${i})"`}>
+        </div>
+      </div>
+    </div>`;
+
+  const pickBlocksHtml = picks.map((pick, i) => {
+    const valA = pick.predA ?? '', valB = pick.predB ?? '';
+    const isDrawNormal = valA !== '' && valB !== '' && Number(valA) === Number(valB);
+    const v2pA = pick.pred2PA ?? '', v2pB = pick.pred2PB ?? '';
+    const isDrawProrroga = v2pA !== '' && v2pB !== '' && Number(v2pA) === Number(v2pB);
+    const showProrroga = isDrawNormal;
+    const showPen = isDrawNormal && isDrawProrroga;
+    const ev = disableInputs ? '' : `oninput="updateTripleDraft('${m.id}',${i})"`;
+
+    const rankOptions = ['bonus','normal','extra'].map(r =>
+      `<option value="${r}" ${pick.rank===r?'selected':''}>${TRIPLE_RANK_LABELS[r]}</option>`
+    ).join('');
+
+    const pickPoints = (isFinal && points !== null) ? calcSinglePoints(pick, m) * (TRIPLE_RANK_WEIGHTS[pick.rank] ?? 1) : null;
+
+    return `
+      <div class="triple-pick">
+        <div class="triple-pick-head">
+          <div class="pick-label">Palpite ${i+1}</div>
+          <select class="rank-select rank-${pick.rank}" id="triple-rank-${m.id}-${i}" ${dis} ${disableInputs ? '' : `onchange="updateTripleRank('${m.id}',${i})"`}>
+            ${rankOptions}
+          </select>
+        </div>
+        <div class="teams-row" style="margin-top:0;">
+          <div class="team-col">
+            <div class="name" style="font-size:11px;">${m.teamA}</div>
+            <input type="number" min="0" max="20" class="score-box" id="triple-score-a-${m.id}-${i}" value="${valA}" ${dis} ${ev}>
+          </div>
+          <div class="versus" style="font-size:14px;">x</div>
+          <div class="team-col">
+            <div class="name" style="font-size:11px;">${m.teamB}</div>
+            <input type="number" min="0" max="20" class="score-box" id="triple-score-b-${m.id}-${i}" value="${valB}" ${dis} ${ev}>
+          </div>
+        </div>
+        ${subRow('triple-t1-a-'+m.id+'-'+i, 'triple-t1-b-'+m.id+'-'+i, pick.pred1TA, pick.pred1TB, '1º Tempo', i)}
+        <div id="triple-prorroga-block-${m.id}-${i}" style="${showProrroga ? '' : 'display:none;'}">
+          ${subRow('triple-p1-a-'+m.id+'-'+i, 'triple-p1-b-'+m.id+'-'+i, pick.pred1PA, pick.pred1PB, '⏱️ Prorrogação — Após 1º Tempo (acumulado)', i)}
+          ${subRow('triple-p2-a-'+m.id+'-'+i, 'triple-p2-b-'+m.id+'-'+i, pick.pred2PA, pick.pred2PB, '⏱️ Prorrogação — Após 2º Tempo (acumulado)', i)}
+        </div>
+        <div id="triple-pen-block-${m.id}-${i}" style="${showPen ? '' : 'display:none;'}">
+          ${subRow('triple-pen-a-'+m.id+'-'+i, 'triple-pen-b-'+m.id+'-'+i, pick.predPenA, pick.predPenB, '🥅 Disputa de Pênaltis', i)}
+        </div>
+        ${pickPoints !== null ? `<div class="triple-summary-row"><span class="lbl">${TRIPLE_RANK_LABELS[pick.rank]}</span><span class="badge ${pointsBadgeClass(pickPoints)}">+${formatPoints(pickPoints)} pts</span></div>` : ''}
+      </div>`;
+  }).join('');
+
+  let footer = '';
+  if (pred) {
+    if (isFinal && points !== null) {
+      footer = `<div class="result-note" style="margin-top:12px;"><span class="badge ${pointsBadgeClass(points)}">Total: +${formatPoints(points)} pt${points===1?'':'s'}</span></div>`;
+    } else {
+      footer = `<div class="saved-note" style="margin-top:12px;">✅ Seus 3 palpites foram registrados. Aguardando o apito final!</div>`;
+    }
+  } else if (isFinal) {
+    footer = `<div class="saved-note" style="margin-top:12px;">— Você não registrou os 3 palpites para este jogo —</div>`;
+  } else if (isLocked) {
+    footer = `<div class="saved-note" style="margin-top:12px;">⏰ Palpites encerrados: o jogo já começou.</div>`;
+  } else {
+    footer = `
+      <div class="triple-save-box">
+        <button class="btn btn-primary" onclick="saveTriplePrediction('${m.id}')">Salvar meus 3 palpites</button>
+        <div id="triple-save-msg-${m.id}" class="batch-save-msg"></div>
+      </div>`;
+  }
+
+  const statusBadge = isFinal
+    ? `<span class="badge badge-done">Resultado: ${m.scoreA} x ${m.scoreB}</span>`
+    : (isLocked ? `<span class="badge badge-pending">Palpites encerrados</span>` : `<span class="badge badge-pending">Aguardando jogo</span>`);
+
+  return `
+    <div class="match-card">
+      <div class="final-banner">
+        <div class="title">🏆 ${m.teamA} x ${m.teamB} — Grande Final</div>
+        <div class="desc">Dê 3 palpites de placar diferentes entre si e escolha o peso de cada um. Os 3 valem para o ranking geral e do dia.</div>
+        <div class="weights">
+          <span class="weight-chip bonus">🌟 Bônus = 2x os pontos</span>
+          <span class="weight-chip">⚪ Normal = 1x os pontos</span>
+          <span class="weight-chip">➗ Extra = 0,5x os pontos</span>
+        </div>
+      </div>
+      <div class="match-meta">
+        <span class="badge badge-group">Final</span>
+        <span>${fmtDateTime(m.datetime)}</span>
+      </div>
+      ${pickBlocksHtml}
+      <div class="match-meta" style="margin-top:10px;margin-bottom:0;justify-content:center;">
+        ${statusBadge}
+      </div>
+      ${footer}
+    </div>`;
+}
+
+window.saveTriplePrediction = async function(matchId){
+  const m = allMatches.find(x => x.id === matchId);
+  if (!m) return;
+
+  if (myPredictions[matchId] || isMatchLocked(m) || m.status === 'finalizado') {
+    alert('Este jogo já começou ou os palpites já foram registrados.');
+    renderPalpites();
+    return;
+  }
+
+  captureTripleDraftsFromDOM();
+  const picks = (tripleDrafts[matchId] || defaultTriplePicks()).map(p => ({...p}));
+
+  for (let i = 0; i < 3; i++){
+    const p = picks[i];
+    if (p.predA === '' || p.predB === '') {
+      alert(`Preencha o placar do Palpite ${i+1}.`);
+      return;
+    }
+    const a = Number(p.predA), b = Number(p.predB);
+    if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a > 20 || b > 20) {
+      alert(`Placar inválido no Palpite ${i+1}.`);
+      return;
+    }
+  }
+
+  const scoreKeys = picks.map(p => `${p.predA}-${p.predB}`);
+  if (new Set(scoreKeys).size < 3) {
+    alert('Os 3 palpites precisam ter placares diferentes entre si.');
+    return;
+  }
+
+  const ranks = picks.map(p => p.rank).slice().sort().join(',');
+  if (ranks !== 'bonus,extra,normal') {
+    alert('Marque um palpite como Bônus, um como Normal e um como Extra (sem repetir nenhum).');
+    return;
+  }
+
+  const resumo = picks.map(p => `${TRIPLE_RANK_LABELS[p.rank]}: ${m.teamA} ${p.predA} x ${p.predB} ${m.teamB}`).join('\n');
+  if (!confirm(`Confirmar seus 3 palpites para a final?\n\n${resumo}\n\nDepois de salvar, não será possível alterar.`)) return;
+
+  if (isMatchLocked(m) || m.status === 'finalizado') {
+    alert('O jogo começou enquanto você confirmava. Revise e tente novamente.');
+    renderPalpites();
+    return;
+  }
+
+  const btn = document.querySelector(`button[onclick="saveTriplePrediction('${matchId}')"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+
+  const cleanPick = (p) => ({
+    rank: p.rank,
+    predA: Number(p.predA), predB: Number(p.predB),
+    pred1TA: p.pred1TA !== '' ? Number(p.pred1TA) : null,
+    pred1TB: p.pred1TB !== '' ? Number(p.pred1TB) : null,
+    pred1PA: p.pred1PA !== '' ? Number(p.pred1PA) : null,
+    pred1PB: p.pred1PB !== '' ? Number(p.pred1PB) : null,
+    pred2PA: p.pred2PA !== '' ? Number(p.pred2PA) : null,
+    pred2PB: p.pred2PB !== '' ? Number(p.pred2PB) : null,
+    predPenA: p.predPenA !== '' ? Number(p.predPenA) : null,
+    predPenB: p.predPenB !== '' ? Number(p.predPenB) : null,
+  });
+
+  try {
+    const predId = `${currentUser.uid}_${matchId}`;
+    await setDoc(doc(db, 'predictions', predId), {
+      uid: currentUser.uid,
+      matchId,
+      tripleBet: true,
+      picks: picks.map(cleanPick),
+      createdAt: serverTimestamp()
+    });
+    delete tripleDrafts[matchId];
+    cachedAllPreds = null;
+    renderPalpites();
+  } catch (e) {
+    console.error(e);
+    const msgEl = $('triple-save-msg-'+matchId);
+    if (msgEl) { msgEl.textContent = 'Não foi possível salvar. Tente novamente.'; msgEl.className = 'batch-save-msg err'; }
+    alert('Não foi possível salvar seus palpites. Tente novamente.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Salvar meus 3 palpites'; }
+  }
+};
+
 window.renderHistorico = function(){
   const list = $('historico-list');
   if (!list) return;
@@ -2036,7 +2412,15 @@ window.renderHistorico = function(){
     const resultText = isFinal ? `${m.scoreA} x ${m.scoreB}` : 'Aguardando resultado';
     const pointsHtml = points === null
       ? `<span class="badge badge-pending">Pendente</span>`
-      : `<span class="badge ${pointsBadgeClass(points)}">+${points} pt${points===1?'':'s'}</span>`;
+      : `<span class="badge ${pointsBadgeClass(points)}">+${formatPoints(points)} pt${points===1?'':'s'}</span>`;
+
+    const yourGuessHtml = (pred.tripleBet && Array.isArray(pred.picks))
+      ? pred.picks.map(pick => {
+          const pts = isFinal ? calcSinglePoints(pick, m) * (TRIPLE_RANK_WEIGHTS[pick.rank] ?? 1) : null;
+          const ptsTxt = pts === null ? '' : ` <span style="color:var(--muted);">(+${formatPoints(pts)})</span>`;
+          return `${TRIPLE_RANK_LABELS[pick.rank] || pick.rank}: <strong>${pick.predA} x ${pick.predB}</strong>${ptsTxt}`;
+        }).join('<br>')
+      : `<strong>${pred.predA} x ${pred.predB}</strong>`;
 
     return `
       <div class="history-card">
@@ -2050,7 +2434,7 @@ window.renderHistorico = function(){
           <span>${escapeHtml(m.teamB)} ${flagB}</span>
         </div>
         <div class="history-score-row">
-          <span>Seu palpite<br><strong>${pred.predA} x ${pred.predB}</strong></span>
+          <span>Seu palpite<br>${yourGuessHtml}</span>
           <span>Resultado<br><strong>${resultText}</strong></span>
           <span>Pontos<br>${pointsHtml}</span>
         </div>
@@ -2252,13 +2636,16 @@ window.renderPalpitesHoje = async function(){
         ? `<div class="saved-note" style="padding:12px 0;">— Nenhum usuário palpitou neste jogo ainda —</div>`
         : preds.map(p => {
             const u = usersById[p.uid] || { nickname: '(usuário removido)', photoBase64: '' };
-            const pts = calcPoints({ predA: p.predA, predB: p.predB }, m);
-            const pointsBadge = pts === null ? '' : `<span class="badge ${pointsBadgeClass(pts)}">+${pts}</span>`;
+            const pts = calcPoints(p, m);
+            const pointsBadge = pts === null ? '' : `<span class="badge ${pointsBadgeClass(pts)}">+${formatPoints(pts)}</span>`;
+            const scoreText = (p.tripleBet && Array.isArray(p.picks))
+              ? p.picks.map(pick => `${TRIPLE_RANK_LABELS[pick.rank] ? TRIPLE_RANK_LABELS[pick.rank].split(' ')[0] : ''} ${pick.predA}x${pick.predB}`).join(' · ')
+              : `${p.predA} x ${p.predB}`;
             return `
               <div class="today-pred-row">
                 ${avatarHTML(u.photoBase64, '⚽', '')}
                 <div class="today-pred-name">${escapeHtml(u.nickname)}</div>
-                <div class="today-pred-score">${p.predA} x ${p.predB}</div>
+                <div class="today-pred-score">${scoreText}</div>
                 ${pointsBadge}
               </div>`;
           }).join('');
@@ -2983,7 +3370,7 @@ async function renderRanking(){
         ${avatarHTML(r.photoBase64, '⚽', '')}
         <div class="ranking-name">${escapeHtml(r.nickname)}${isMe ? '<span class="you-tag">você</span>' : ''}</div>
         ${rankingMoveHTML(move)}
-        <div class="ranking-pts">${r.total}<span>pts</span></div>
+        <div class="ranking-pts">${formatPoints(r.total)}<span>pts</span></div>
       </div>`;
   }).join('');
 }
@@ -3094,7 +3481,7 @@ if (dateKey === dailyMusicDateKey) {
         ${avatarHTML(r.photoBase64, '⚽', '')}
         <div class="ranking-name">${escapeHtml(r.nickname)}${isMe ? '<span class="you-tag">você</span>' : ''}</div>
         ${rankingMoveHTML(move)}
-        <div class="ranking-pts">${r.total}<span>pts</span></div>
+        <div class="ranking-pts">${formatPoints(r.total)}<span>pts</span></div>
       </div>`;
   }).join('');
 }
@@ -3104,6 +3491,40 @@ function escapeHtml(str){
   const d = document.createElement('div');
   d.textContent = str;
   return d.innerHTML;
+}
+
+/* ---------------- Confete da final ---------------- */
+const CONFETTI_COLORS = ['#FFC53D', '#D9534F', '#3E8E5A', '#F6F4EC', '#0E3B2E', '#4C9BE8'];
+let confettiSpawned = false;
+
+function spawnConfettiPieces(){
+  const layer = $('confetti-layer');
+  if (!layer || confettiSpawned) return;
+  confettiSpawned = true;
+  const count = 28; // chuva leve
+  let html = '';
+  for (let i = 0; i < count; i++){
+    const left = Math.random() * 100;
+    const delay = Math.random() * 6;
+    const duration = 5 + Math.random() * 4;
+    const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    const rotate = Math.random() * 360;
+    html += `<div class="confetti-piece" style="left:${left}%;background:${color};animation-delay:${delay}s;animation-duration:${duration}s;transform:rotate(${rotate}deg);"></div>`;
+  }
+  layer.innerHTML = html;
+}
+
+// Chuva de confete fica ativa enquanto houver algum jogo de "Triplo Palpite" (final) ainda não finalizado
+function updateConfettiState(){
+  const layer = $('confetti-layer');
+  if (!layer) return;
+  const hasActiveFinal = allMatches.some(m => m.tripleBet && m.status !== 'finalizado');
+  if (hasActiveFinal) {
+    spawnConfettiPieces();
+    layer.classList.add('active');
+  } else {
+    layer.classList.remove('active');
+  }
 }
 
 /* ---------------- Render: Perfil ---------------- */
@@ -3229,11 +3650,12 @@ function renderAdmin(){
 
     const hasP = m.score1PA != null;
     const hasPen = m.scorePenA != null;
+    const isTriple = Boolean(m.tripleBet);
 
     return `
       <div class="admin-match-row">
         <div class="admin-match-top">
-          <span>${groupLabel} · ${fmtDateTime(m.datetime)}</span>
+          <span>${groupLabel} · ${fmtDateTime(m.datetime)}${isTriple ? ' · 🏆 Triplo Palpite' : ''}</span>
           <span>${isFinal ? '✅ Finalizado' : '⏳ Em aberto'}</span>
         </div>
         <div class="admin-match-teams">
@@ -3251,6 +3673,7 @@ function renderAdmin(){
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-ghost btn-sm" onclick="adminToggleProrrogaBlock('${m.id}')">+ Prorrogação</button>
           <button class="btn btn-ghost btn-sm" onclick="adminTogglePenBlock('${m.id}')">+ Pênaltis</button>
+          <button class="btn btn-ghost btn-sm" onclick="adminToggleTripleBet('${m.id}')">${isTriple ? '🏆 Desativar Triplo Palpite' : '🏆 Ativar Triplo Palpite (Final)'}</button>
         </div>
         <div class="admin-actions">
           <button class="btn btn-primary btn-sm" onclick="finalizeMatch('${m.id}')">${isFinal ? 'Atualizar resultado' : 'Salvar resultado'}</button>
@@ -3295,6 +3718,19 @@ window.adminTogglePenBlock = function(matchId){
   const block = $('admin-pen-block-' + matchId);
   if (!block) return;
   block.style.display = block.style.display === 'none' ? '' : 'none';
+};
+
+window.adminToggleTripleBet = async function(matchId){
+  const m = allMatches.find(x => x.id === matchId);
+  if (!m) return;
+  const next = !m.tripleBet;
+  if (next && !confirm(`Ativar o Triplo Palpite para ${m.teamA} x ${m.teamB}?\n\nOs usuários passarão a dar 3 palpites de placar (Bônus 2x, Normal 1x, Extra 0,5x) para este jogo.`)) return;
+  try {
+    await updateDoc(doc(db, 'matches', matchId), { tripleBet: next });
+  } catch (e) {
+    console.error(e);
+    alert('Não foi possível atualizar o jogo. Tente novamente.');
+  }
 };
 
 function adminGetScore(idA, idB){
