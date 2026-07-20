@@ -12,11 +12,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --pitch:#0E3B2E;
-    --pitch-deep:#082922;
+    /* Tema de encerramento — cores da Espanha, campeã da Copa 2026 */
+    --pitch:#AA151B;
+    --pitch-deep:#6E0E12;
     --chalk:#F6F4EC;
     --paper:#FFFFFF;
-    --amber:#FFC53D;
+    --amber:#F1BF00;
     --ink:#16231D;
     --muted:#7C8A82;
     --line:#E5E1D3;
@@ -1010,6 +1011,74 @@
     position:absolute;top:-20px;width:7px;height:12px;opacity:.85;
     animation:confetti-fall linear infinite;border-radius:1px;
   }
+  /* ---------- Despedida: pódio animado ---------- */
+  .podium{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin-top:10px;padding:0 4px;}
+  .podium-col{flex:1;max-width:130px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+  .podium-col .avatar{margin-bottom:6px;}
+  .podium-medal{font-size:26px;line-height:1;}
+  .podium-name{font-weight:800;font-size:13px;color:var(--ink);margin-top:2px;word-break:break-word;}
+  .podium-pts{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;}
+  .podium-bar{
+    width:100%;border-radius:8px 8px 0 0;
+    background:linear-gradient(180deg,var(--amber),var(--pitch));
+    animation:podiumRise .7s cubic-bezier(.2,.8,.2,1) both;
+    transform-origin:bottom;
+  }
+  .podium-col.first .podium-bar{height:96px;animation-delay:.15s;}
+  .podium-col.second .podium-bar{height:66px;animation-delay:.05s;}
+  .podium-col.third .podium-bar{height:42px;animation-delay:.25s;}
+  .podium-col.first .podium-medal{font-size:34px;}
+  @keyframes podiumRise{from{transform:scaleY(0);opacity:0;}to{transform:scaleY(1);opacity:1;}}
+
+  /* ---------- Despedida: colagem de fotos ---------- */
+  .photo-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));
+    gap:10px;margin-top:8px;
+  }
+  .photo-grid-item{display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .photo-grid-item .avatar{width:56px;height:56px;font-size:22px;
+    animation:photoPop .5s ease both;}
+  .photo-grid-item:nth-child(3n+1) .avatar{animation-delay:.02s;}
+  .photo-grid-item:nth-child(3n+2) .avatar{animation-delay:.08s;}
+  .photo-grid-item:nth-child(3n+3) .avatar{animation-delay:.14s;}
+  @keyframes photoPop{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .photo-grid-name{font-size:10px;color:var(--muted);font-weight:700;text-align:center;
+    max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  /* ---------- Trajetória: linha do tempo da liderança ---------- */
+  .leadership-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);}
+  .leadership-item:last-child{border-bottom:none;}
+  .leadership-item .avatar{width:34px;height:34px;font-size:14px;flex-shrink:0;}
+  .leadership-date{font-size:11px;font-weight:800;color:var(--muted);min-width:36px;flex-shrink:0;}
+  .leadership-name{font-weight:700;font-size:13px;color:var(--ink);flex:1;}
+  .leadership-crown{font-size:16px;flex-shrink:0;}
+
+  /* ---------- Trajetória: faixas de evolução ---------- */
+  .position-strip-row{margin-bottom:18px;}
+  .position-strip-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .position-strip-head .avatar{width:30px;height:30px;font-size:13px;flex-shrink:0;}
+  .position-strip-name{font-weight:800;font-size:13px;color:var(--ink);flex:1;}
+  .position-strip-summary{font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap;}
+  .position-strip-dots{display:flex;gap:3px;flex-wrap:wrap;}
+  .pos-dot{width:9px;height:9px;border-radius:2.5px;flex-shrink:0;}
+  .pos-dot.gold{background:var(--amber);}
+  .pos-dot.silver{background:#B9BEC7;}
+  .pos-dot.bronze{background:#C57A3E;}
+  .pos-dot.top10{background:#4C9BE8;}
+  .pos-dot.other{background:#E5E1D3;}
+
+  /* ---------- Playlist ---------- */
+  .playlist-item{margin-bottom:10px;}
+  .playlist-date{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+  .playlist-song{font-size:14px;font-weight:700;color:var(--ink);margin-top:2px;}
+  .playlist-leader{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  /* ---------- Hall da Fama ---------- */
+  .hall-card{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+  .hall-card .avatar{flex-shrink:0;}
+  .hall-card-title{font-weight:800;font-size:14px;color:var(--pitch);}
+  .hall-card-desc{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4;}
+
   @keyframes confetti-fall{
     0%{transform:translateY(0) rotate(0deg);}
     100%{transform:translateY(120vh) rotate(360deg);}
@@ -1214,34 +1283,54 @@
         <div id="admin-list-title" style="font-weight:800;font-size:14px;color:var(--pitch);margin-bottom:8px;">Jogos em aberto</div>
         <div id="admin-matches-list"></div>
       </section>
+
+      <!-- DESPEDIDA -->
+      <section id="tab-despedida" class="tab hidden">
+        <div class="section-title">🇪🇸 Fim de Copa!</div>
+        <div class="section-sub">A Espanha é a campeã e o nosso bolão chega ao fim. Valeu por cada palpite, cada zoeira no chat e cada música escolhida — foi uma copa e tanto! Obrigado por ter participado. 🎉</div>
+        <div id="despedida-podium"></div>
+        <div class="section-title" style="margin-top:26px;font-size:16px;">Todo mundo que topou essa copa</div>
+        <div id="despedida-photo-grid" class="photo-grid"></div>
+      </section>
+
+      <!-- TRAJETÓRIA (ranking do início ao fim) -->
+      <section id="tab-trajetoria" class="tab hidden">
+        <div class="section-title">Trajetória no ranking</div>
+        <div class="section-sub">A liderança do bolão e a evolução dos melhores colocados, do primeiro ao último jogo.</div>
+        <div class="section-title" style="font-size:14px;margin-top:20px;">👑 Quem liderou o bolão</div>
+        <div id="trajetoria-leadership"></div>
+        <div class="section-title" style="font-size:14px;margin-top:24px;">Evolução dos melhores colocados</div>
+        <div id="trajetoria-strips"></div>
+      </section>
+
+      <!-- PLAYLIST -->
+      <section id="tab-playlist" class="tab hidden">
+        <div class="section-title">Playlist da Copa</div>
+        <div class="section-sub">Todas as músicas escolhidas pelo líder do dia, do início ao fim.</div>
+        <div id="playlist-list"></div>
+      </section>
+
+      <!-- HALL DA FAMA -->
+      <section id="tab-halldafama" class="tab hidden">
+        <div class="section-title">Hall da Fama</div>
+        <div class="section-sub">Curiosidades e recordes do bolão.</div>
+        <div id="halldafama-list"></div>
+      </section>
     </main>
 
     <!-- BOTTOM NAV -->
     <nav class="bottom-nav">
-      <button data-tab="palpites" class="active" onclick="switchTab('palpites')">
-        <span class="ico">⚽</span>Palpites
+      <button data-tab="despedida" class="active" onclick="switchTab('despedida')">
+        <span class="ico">🎉</span>Despedida
       </button>
-      <button data-tab="historico" onclick="switchTab('historico')">
-        <span class="ico">📜</span>Histórico
+      <button data-tab="trajetoria" onclick="switchTab('trajetoria')">
+        <span class="ico">📈</span>Trajetória
       </button>
-      <button data-tab="ranking" onclick="switchTab('ranking')">
-        <span class="ico">🏆</span>Geral
+      <button data-tab="playlist" onclick="switchTab('playlist')">
+        <span class="ico">🎵</span>Playlist
       </button>
-      <button data-tab="ranking-dia" onclick="openRankingDiaTab()">
-        <span class="ico">🥇</span>Dia
-      </button>
-      <button data-tab="hoje" onclick="switchTab('hoje')">
-        <span class="ico">🎉</span>Galera
-      </button>
-      <button data-tab="chat" onclick="switchTab('chat')">
-        <span class="ico">💬</span>Chat
-        <span id="chat-unread-badge" class="chat-unread-badge hidden">0</span>
-      </button>
-      <button data-tab="perfil" onclick="switchTab('perfil')">
-        <span class="ico">👤</span>Perfil
-      </button>
-      <button data-tab="admin" id="nav-admin" class="hidden" onclick="switchTab('admin')">
-        <span class="ico">🛠️</span>Admin
+      <button data-tab="halldafama" onclick="switchTab('halldafama')">
+        <span class="ico">🌟</span>Hall da Fama
       </button>
     </nav>
   </div>
@@ -1577,6 +1666,10 @@ window.switchTab = function(tabName){
   }
   if (tabName === 'perfil') renderPerfil();
   if (tabName === 'admin') renderAdmin();
+  if (tabName === 'despedida') renderDespedida();
+  if (tabName === 'trajetoria') renderTrajetoria();
+  if (tabName === 'playlist') renderPlaylist();
+  if (tabName === 'halldafama') renderHallDaFama();
 };
 
 /* ---------------- Entrar no app ---------------- */
@@ -1585,14 +1678,14 @@ function enterApp(){
   hide($('onboarding-screen'));
   show($('app'));
 
-  if (userProfile.isAdmin) show($('nav-admin'));
-  else hide($('nav-admin'));
-
   subscribeMatches();
   subscribeMyPredictions();
   subscribeDailyMusicSelection();
   subscribeChatMessages();
   tryAutoStartLocalMusic();
+
+  // Copa encerrada: a Espanha é a campeã e o bolão entra em modo de despedida
+  switchTab('despedida');
 }
 
 /* ---------------- Firestore: jogos ---------------- */
@@ -1610,6 +1703,9 @@ function subscribeMatches(){
     if (!$('tab-ranking-dia').classList.contains('hidden')) renderRankingDia();
     if (!$('tab-hoje').classList.contains('hidden')) renderPalpitesHoje();
     if (!$('tab-admin').classList.contains('hidden')) renderAdmin();
+    if (!$('tab-despedida').classList.contains('hidden')) renderDespedida();
+    if (!$('tab-trajetoria').classList.contains('hidden')) renderTrajetoria();
+    if (!$('tab-halldafama').classList.contains('hidden')) renderHallDaFama();
   });
 }
 
@@ -3023,6 +3119,252 @@ async function buildRanking(options={}){
   return ranking;
 }
 
+/* ---------------- DESPEDIDA: pódio final + colagem de fotos ---------------- */
+async function renderDespedida(){
+  const podiumEl = $('despedida-podium');
+  const gridEl = $('despedida-photo-grid');
+  if (podiumEl) podiumEl.innerHTML = `<div class="empty-state">Calculando o pódio final...</div>`;
+
+  const [ranking, users] = await Promise.all([buildRanking(), fetchCachedUsers()]);
+
+  if (podiumEl) {
+    if (ranking.length === 0) {
+      podiumEl.innerHTML = `<div class="empty-state"><span class="big">🏆</span>Ainda não há participantes.</div>`;
+    } else {
+      const top3 = ranking.slice(0, 3);
+      const visualOrder = [1, 0, 2]; // exibe 2º-1º-3º da esquerda pra direita
+      podiumEl.innerHTML = `<div class="podium">` + visualOrder.map(i => {
+        const r = top3[i];
+        if (!r) return '';
+        const place = i + 1;
+        const heightClass = place === 1 ? 'first' : place === 2 ? 'second' : 'third';
+        const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : '🥉';
+        return `
+          <div class="podium-col ${heightClass}">
+            ${avatarHTML(r.photoBase64, '⚽', 'avatar-lg')}
+            <div class="podium-medal">${medal}</div>
+            <div class="podium-name">${escapeHtml(r.nickname)}</div>
+            <div class="podium-pts">${formatPoints(r.total)} pts</div>
+            <div class="podium-bar"></div>
+          </div>`;
+      }).join('') + `</div>`;
+    }
+  }
+
+  if (gridEl) {
+    const entries = Object.entries(users);
+    if (entries.length === 0) {
+      gridEl.innerHTML = `<div class="empty-state">Nenhum participante encontrado.</div>`;
+    } else {
+      gridEl.innerHTML = entries.map(([uid, u]) => `
+        <div class="photo-grid-item">
+          ${avatarHTML(u.photoBase64, '⚽', '')}
+          <div class="photo-grid-name">${escapeHtml(u.nickname || '(sem nome)')}</div>
+        </div>`).join('');
+    }
+  }
+}
+
+/* ---------------- TRAJETÓRIA: ranking do início ao fim ---------------- */
+function getAllFinalizedDateKeysSorted(){
+  const keys = new Set();
+  allMatches.forEach(m => {
+    if (isMatchFinalized(m)) {
+      const dk = getMatchDateKey(m);
+      if (dk) keys.add(dk);
+    }
+  });
+  return Array.from(keys).sort();
+}
+
+async function buildRankingTrajectory(){
+  const dateKeys = getAllFinalizedDateKeysSorted();
+  const snapshots = [];
+  for (const dk of dateKeys) {
+    const ranking = await buildRanking({ upToDateKey: dk });
+    const posMap = {};
+    ranking.forEach((r, idx) => { posMap[r.uid] = idx + 1; });
+    snapshots.push({ dateKey: dk, posMap });
+  }
+  return { dateKeys, snapshots };
+}
+
+function formatDateKeyLabel(dateKey){
+  if (!dateKey) return '';
+  const parts = dateKey.split('-');
+  if (parts.length !== 3) return dateKey;
+  return `${parts[2]}/${parts[1]}`;
+}
+
+function positionBucketClass(pos, totalUsers){
+  if (pos === 1) return 'gold';
+  if (pos === 2) return 'silver';
+  if (pos === 3) return 'bronze';
+  if (pos <= Math.max(10, Math.ceil(totalUsers * 0.2))) return 'top10';
+  return 'other';
+}
+
+async function renderTrajetoria(){
+  const leadershipEl = $('trajetoria-leadership');
+  const stripsEl = $('trajetoria-strips');
+  if (leadershipEl) leadershipEl.innerHTML = `<div class="empty-state">Reconstruindo a liderança do bolão...</div>`;
+  if (stripsEl) stripsEl.innerHTML = '';
+
+  const [{ dateKeys, snapshots }, users] = await Promise.all([
+    buildRankingTrajectory(),
+    fetchCachedUsers()
+  ]);
+
+  if (dateKeys.length === 0) {
+    if (leadershipEl) leadershipEl.innerHTML = `<div class="empty-state"><span class="big">📈</span>Ainda não há rodadas suficientes para montar a trajetória.</div>`;
+    if (stripsEl) stripsEl.innerHTML = '';
+    return;
+  }
+
+  const uids = Object.keys(users);
+  const totalUsers = uids.length;
+  if (totalUsers === 0) {
+    if (leadershipEl) leadershipEl.innerHTML = `<div class="empty-state">Nenhum participante encontrado.</div>`;
+    return;
+  }
+
+  // --- Linha do tempo da liderança: só marca quando o 1º lugar muda ---
+  let leadershipHTML = '';
+  let lastLeaderUid = null;
+  snapshots.forEach(snap => {
+    const leaderUid = Object.keys(snap.posMap).find(uid => snap.posMap[uid] === 1);
+    if (leaderUid && leaderUid !== lastLeaderUid) {
+      const u = users[leaderUid] || {};
+      leadershipHTML += `
+        <div class="leadership-item">
+          <div class="leadership-date">${formatDateKeyLabel(snap.dateKey)}</div>
+          ${avatarHTML(u.photoBase64, '⚽', '')}
+          <div class="leadership-name">${escapeHtml(u.nickname || '(sem nome)')} assumiu a liderança</div>
+          <div class="leadership-crown">👑</div>
+        </div>`;
+      lastLeaderUid = leaderUid;
+    }
+  });
+  if (leadershipEl) {
+    leadershipEl.innerHTML = leadershipHTML || `<div class="empty-state">Sem trocas de liderança registradas.</div>`;
+  }
+
+  // --- Faixas de evolução dos melhores colocados ---
+  const finalPosMap = snapshots[snapshots.length - 1].posMap;
+  const sortedByFinal = uids.slice().sort((a, b) => (finalPosMap[a] || 999) - (finalPosMap[b] || 999));
+  const highlighted = sortedByFinal.slice(0, 8);
+
+  if (stripsEl) {
+    stripsEl.innerHTML = highlighted.map(uid => {
+      const u = users[uid] || {};
+      const posSeries = snapshots.map(s => s.posMap[uid]).filter(Boolean);
+      if (posSeries.length === 0) return '';
+      const startPos = posSeries[0];
+      const bestPos = Math.min(...posSeries);
+      const finalPos = posSeries[posSeries.length - 1];
+      const dots = snapshots.map(s => {
+        const pos = s.posMap[uid];
+        if (!pos) return `<span class="pos-dot other" style="opacity:.25;" title="${formatDateKeyLabel(s.dateKey)}: sem palpite"></span>`;
+        const cls = positionBucketClass(pos, totalUsers);
+        return `<span class="pos-dot ${cls}" title="${formatDateKeyLabel(s.dateKey)}: ${pos}º"></span>`;
+      }).join('');
+      return `
+        <div class="position-strip-row">
+          <div class="position-strip-head">
+            ${avatarHTML(u.photoBase64, '⚽', '')}
+            <div class="position-strip-name">${escapeHtml(u.nickname || '(sem nome)')}</div>
+            <div class="position-strip-summary">Início ${startPos}º · Melhor ${bestPos}º · Final ${finalPos}º</div>
+          </div>
+          <div class="position-strip-dots">${dots}</div>
+        </div>`;
+    }).join('');
+  }
+}
+
+/* ---------------- PLAYLIST DA COPA ---------------- */
+async function renderPlaylist(){
+  const listEl = $('playlist-list');
+  if (listEl) listEl.innerHTML = `<div class="empty-state">Carregando a playlist...</div>`;
+
+  const q = query(collection(db, 'musicSelections'), orderBy('dateKey', 'asc'));
+  const snap = await getDocs(q);
+  const items = snap.docs.map(d => d.data()).filter(m => m.requestText);
+
+  if (items.length === 0) {
+    if (listEl) listEl.innerHTML = `<div class="empty-state"><span class="big">🎵</span>Nenhuma música foi escolhida durante a copa.</div>`;
+    return;
+  }
+
+  if (listEl) {
+    listEl.innerHTML = items.map(m => `
+      <div class="card playlist-item">
+        <div class="playlist-date">${escapeHtml(m.dateLabel || m.dateKey || '')}</div>
+        <div class="playlist-song">🎵 ${escapeHtml(m.requestText)}</div>
+        <div class="playlist-leader">Escolhida por ${escapeHtml(m.leaderNickname || '(sem nome)')}</div>
+      </div>`).join('');
+  }
+}
+
+/* ---------------- HALL DA FAMA ---------------- */
+function hallCardHTML(emoji, title, desc, photoBase64){
+  return `
+    <div class="card hall-card">
+      ${avatarHTML(photoBase64, emoji, 'avatar-lg')}
+      <div class="hall-card-body">
+        <div class="hall-card-title">${emoji} ${title}</div>
+        <div class="hall-card-desc">${desc}</div>
+      </div>
+    </div>`;
+}
+
+async function renderHallDaFama(){
+  const listEl = $('halldafama-list');
+  if (listEl) listEl.innerHTML = `<div class="empty-state">Apurando as curiosidades...</div>`;
+
+  const [users, allPreds] = await Promise.all([fetchCachedUsers(), fetchCachedAllPreds()]);
+  const matchById = {};
+  allMatches.forEach(m => matchById[m.id] = m);
+
+  const exactCountByUid = {};
+  const totalByUid = {};
+  Object.keys(users).forEach(uid => { totalByUid[uid] = 0; });
+
+  allPreds.forEach(p => {
+    const m = matchById[p.matchId];
+    if (!m) return;
+    const pts = calcPoints(p, m);
+    if (pts === null) return;
+    totalByUid[p.uid] = (totalByUid[p.uid] || 0) + pts;
+
+    // Placar exato do tempo normal, fora do Triplo Palpite, pra manter a comparação simples
+    if (!p.tripleBet && Number(p.predA) === Number(m.scoreA) && Number(p.predB) === Number(m.scoreB)) {
+      exactCountByUid[p.uid] = (exactCountByUid[p.uid] || 0) + 1;
+    }
+  });
+
+  let sniperUid = null, sniperCount = 0;
+  Object.entries(exactCountByUid).forEach(([uid, count]) => {
+    if (count > sniperCount) { sniperCount = count; sniperUid = uid; }
+  });
+
+  let lowestUid = null, lowestTotal = Infinity;
+  Object.entries(totalByUid).forEach(([uid, total]) => {
+    if (total < lowestTotal) { lowestTotal = total; lowestUid = uid; }
+  });
+
+  const cards = [];
+  if (sniperUid && sniperCount > 0) {
+    const u = users[sniperUid];
+    cards.push(hallCardHTML('🎯', 'Olho de Sniper', `${escapeHtml(u.nickname)} acertou o placar exato ${sniperCount}x ao longo da copa.`, u.photoBase64));
+  }
+  if (lowestUid) {
+    const u = users[lowestUid];
+    cards.push(hallCardHTML('🍀', 'Zoeira Saudável', `${escapeHtml(u.nickname)} fechou a copa com ${formatPoints(lowestTotal)} pts — mas topou participar até o fim!`, u.photoBase64));
+  }
+
+  if (listEl) listEl.innerHTML = cards.length ? cards.join('') : `<div class="empty-state">Ainda não há dados suficientes.</div>`;
+}
+
 function getTopRankedUsers(ranking){
   if (!ranking || ranking.length === 0) return [];
   const topTotal = Number(ranking[0].total || 0);
@@ -3611,17 +3953,12 @@ function spawnConfettiPieces(){
   layer.innerHTML = html;
 }
 
-// Chuva de confete fica ativa enquanto houver algum jogo de "Triplo Palpite" (final) ainda não finalizado
+// Copa encerrada: chuva de confete permanente comemorando a Espanha campeã
 function updateConfettiState(){
   const layer = $('confetti-layer');
   if (!layer) return;
-  const hasActiveFinal = allMatches.some(m => m.tripleBet && m.status !== 'finalizado');
-  if (hasActiveFinal) {
-    spawnConfettiPieces();
-    layer.classList.add('active');
-  } else {
-    layer.classList.remove('active');
-  }
+  spawnConfettiPieces();
+  layer.classList.add('active');
 }
 
 /* ---------------- Render: Perfil ---------------- */
